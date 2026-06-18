@@ -32,7 +32,7 @@ cargo build --release
 
 ## Roadmap
 
-- ✅ CPU core architecture
+- ⏳ CPU core architecture
 - 🔄 Complete opcode set implementation
 - ⏳ PPU graphics engine
 - ⏳ APU audio system
