@@ -323,35 +323,67 @@ impl Cpu {
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(8);
     }
+    pub fn ld_r16_imm16(&mut self, value: &mut u16, mmu: &mut Mmu) {
+        self.pc = self.pc.wrapping_add(1);
+        let value_low = mmu.read_byte(self.pc);
+        self.pc = self.pc.wrapping_add(1);
+        let value_high = mmu.read_byte(self.pc);
+        let final_value = (value_high as u16) << 8 | (value_low as u16);
+        *value = final_value;
+        self.pc = self.pc.wrapping_add(1);
+        self.cycles = self.cycles.wrapping_add(12);
+    }
+    pub fn inc_r16(&mut self, value: &mut u16) {
+        *value = value.wrapping_add(1);
+        self.pc = self.pc.wrapping_add(1);
+        self.cycles = self.cycles.wrapping_add(8);
+    }
+    pub fn dec_r16(&mut self, value: &mut u16) {
+        *value = value.wrapping_sub(1);
+        self.pc = self.pc.wrapping_add(1);
+        self.cycles = self.cycles.wrapping_add(8);
+    }
+    pub fn inc_r8(&mut self, value: &mut u8) -> u8 {
+        let result = value.wrapping_add(1);
+        self.set_flag_z(result == 0);
+        self.set_flag_n(false);
+        self.set_flag_h((*value & 0x0F) == 0x0F);
+        self.pc = self.pc.wrapping_add(1);
+        self.cycles = self.cycles.wrapping_add(4);
+        result
+    }
+    pub fn dec_r8(&mut self, value: &mut u8) -> u8 {
+        let result = value.wrapping_sub(1);
+        self.set_flag_z(result == 0);
+        self.set_flag_n(true);
+        self.set_flag_h((*value & 0x0F) == 0x00);
+        self.pc = self.pc.wrapping_add(1);
+        self.cycles = self.cycles.wrapping_add(4);
+        result
+    }
+    pub fn ld_r8_imm8(&mut self, value: &mut u8, mmu: &mut Mmu) {
+        self.pc = self.pc.wrapping_add(1);
+        *value = mmu.read_byte(self.pc);
+        self.pc = self.pc.wrapping_add(1);
+        self.cycles = self.cycles.wrapping_add(8);
+    }
+    pub fn jr_cond(&mut self, condition: bool, mmu: &Mmu) {
+        self.pc = self.pc.wrapping_add(1);
+        let offset_raw = mmu.read_byte(self.pc);
+        self.pc = self.pc.wrapping_add(1);
 
-    pub fn ld_r16_imm16(&mut self, _mmu: &mut Mmu) {
-        todo!("Implement ld_r16_imm16")
+        if condition {
+            let offset = offset_raw as i8;
+            self.pc = ((self.pc as i32) + (offset as i32)) as u16;
+            self.cycles = self.cycles.wrapping_add(12);
+        } else {
+            self.cycles = self.cycles.wrapping_add(8);
+        }
     }
-    pub fn inc_r16(&mut self, _reg: &str) {
-        todo!("Implement inc_r16")
-    }
-    pub fn dec_r16(&mut self, _reg: &str) {
-        todo!("Implement dec_r16")
-    }
-
-    pub fn inc_r8(&mut self, _reg: &str) {
-        todo!("Implement inc_r8")
-    }
-
-    pub fn dec_r8(&mut self, _reg: &str) {
-        todo!("Implement dec_r8")
-    }
-
-    pub fn ld_r8_imm8(&mut self, _reg: &str, _mmu: &mut Mmu) {
-        todo!("Implement ld_r8_imm8")
-    }
-
-    pub fn jr_cond(&mut self, _condition: bool, _mmu: &mut Mmu) {
-        todo!("Implement jr_cond")
-    }
-
-    pub fn ld_r8_r8(&mut self, _dst: &str, _src: &str) {
-        todo!("Implement ld_r8_r8")
+    pub fn ld_r8_r8(&mut self, src: u8) -> u8 {
+        self.pc = self.pc.wrapping_add(1);
+        self.cycles = self.cycles.wrapping_add(4);
+        src
     }
 
     pub fn alu_op(&mut self, _op: &str, _reg: &str) {
