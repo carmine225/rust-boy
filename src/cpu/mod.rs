@@ -2,6 +2,7 @@
 
 use crate::get_u16register;
 use crate::mmu::Mmu;
+use crate::set_u16register;
 mod prefixed_fn;
 mod unprefixed_fn;
 
@@ -44,9 +45,9 @@ impl Cpu {
             pc: 0x0100, // Program Counter starts at the beginning of the cartridge
             cycles: 0,
             stopped: false,
-            halted: false,
-            halt_bug_triggered: false,
-            ime: false,
+            halted: false, // indicates whether the CPU is halted (waiting for an interrupt)
+            halt_bug_triggered: false, // indicates whether the halt bug has been triggered
+            ime: false,    // Interrupt Master Enable flag
             interrupt_enable: 0,
             interrupt_flag: 0,
         }
@@ -125,64 +126,91 @@ impl Cpu {
             // CARICAMENTI IMMEDIATI A 16 BIT (LD r16, n16)
             // ==========================================
             0x01 => {
-                let bc = get_u16register!(self, self.b, self.c);
-                self.ld_r16_imm16(bc, mmu)
+                let mut bc = get_u16register!(self, self.b, self.c);
+                self.ld_r16_imm16(&mut bc, mmu)
+                set_u16register!(self, self.b, self.c, bc);
             }
             0x11 => {
-                let de = get_u16register!(self, self.d, self.e);
-                self.ld_r16_imm16(de, mmu)
+                let mut de = get_u16register!(self, self.d, self.e);
+                self.ld_r16_imm16(&mut de, mmu);
+                set_u16register!(self, self.d, self.e, de);
             }
             0x21 => {
-                let hl = get_u16register!(self, self.h, self.l);
-                self.ld_r16_imm16(hl, mmu)
+                let mut hl = get_u16register!(self, self.h, self.l);
+                self.ld_r16_imm16(&mut hl, mmu);
+                set_u16register!(self, self.h, self.l, hl);
             }
-            0x31 => self.ld_r16_imm16(self.sp, mmu),
+            0x31 => self.ld_r16_imm16(&mut self.sp, mmu),
 
             // ==========================================
             // INCREMENTI E DECREMENTI A 16 BIT
             // ==========================================
-            0x03 => self.inc_r16("BC"),
-            0x13 => self.inc_r16("DE"),
-            0x23 => self.inc_r16("HL"),
-            0x33 => self.inc_r16("SP"),
+            0x03 => {
+                let mut bc = get_u16register!(self, self.b, self.c);
+                self.inc_r16(&mut bc)
+                set_u16register!(self, self.b, self.c, bc);
+            },
+            0x13 => {
+                let mut de = get_u16register!(self, self.d, self.e);
+                self.inc_r16(&mut de);
+                set_u16register!(self, self.d, self.e, de);
+            },
+            0x23 => {
+                let mut hl = get_u16register!(self, self.h, self.l);
+                self.inc_r16(&mut hl);
+                set_u16register!(self, self.h, self.l, hl);
+            },
+            0x33 => self.inc_r16(&mut self.sp),
 
-            0x0B => self.dec_r16("BC"),
-            0x1B => self.dec_r16("DE"),
-            0x2B => self.dec_r16("HL"),
-            0x3B => self.dec_r16("SP"),
+            0x0B => {
+                let mut bc = get_u16register!(self, self.b, self.c);
+                self.dec_r16(&mut bc);
+                set_u16register!(self, self.b, self.c, bc);
+            },
+            0x1B => {
+                let mut de = get_u16register!(self, self.d, self.e);
+                self.dec_r16(&mut de);
+                set_u16register!(self, self.d, self.e, de);
+            },
+            0x2B => {
+                let mut hl = get_u16register!(self, self.h, self.l);
+                self.dec_r16(&mut hl);
+                set_u16register!(self, self.h, self.l, hl);
+            },
+            0x3B => self.dec_r16(&mut self.sp),
 
             // ==========================================
             // INCREMENTI E DECREMENTI A 8 BIT
             // ==========================================
-            0x04 => self.inc_r8("B"),
-            0x0C => self.inc_r8("C"),
-            0x14 => self.inc_r8("D"),
-            0x1C => self.inc_r8("E"),
-            0x24 => self.inc_r8("H"),
-            0x2C => self.inc_r8("L"),
-            0x34 => self.inc_hl_mem(mmu), // Speciale: incrementa la memoria puntata da (HL)
-            0x3C => self.inc_r8("A"),
+            0x04 => self.b = self.inc_r8(&mut self.b),
+            0x0C => self.c = self.inc_r8(&mut self.c),
+            0x14 => self.d = self.inc_r8(&mut self.d),
+            0x1C => self.e = self.inc_r8(&mut self.e),
+            0x24 => self.h = self.inc_r8(&mut self.h),
+            0x2C => self.l = self.inc_r8(&mut self.l),
+            0x34 => self.a = self.inc_r8(&mut self.a), // Speciale: incrementa la memoria puntata da (HL)
+            0x3C => self.a = self.inc_r8(&mut self.a),
 
-            0x05 => self.dec_r8("B"),
-            0x0D => self.dec_r8("C"),
-            0x15 => self.dec_r8("D"),
-            0x1D => self.dec_r8("E"),
-            0x25 => self.dec_r8("H"),
-            0x2C => self.dec_r8("L"),
+            0x05 => self.b = self.dec_r8(&mut self.b),
+            0x0D => self.c = self.dec_r8(&mut self.c),
+            0x15 => self.d = self.dec_r8(&mut self.d),
+            0x1D => self.e = self.dec_r8(&mut self.e),
+            0x25 => self.h =self.dec_r8(&mut self.h),
+            0x2C => self.l = self.dec_r8(&mut self.l),
             0x35 => self.dec_hl_mem(mmu), // Speciale: decrementa la memoria puntata da (HL)
-            0x3D => self.dec_r8("A"),
+            0x3D => self.a = self.dec_r8(&mut self.a),
 
             // ==========================================
             // CARICAMENTI IMMEDIATI A 8 BIT (LD r8, n8)
             // ==========================================
-            0x06 => self.ld_r8_imm8("B", mmu),
-            0x0E => self.ld_r8_imm8("C", mmu),
-            0x16 => self.ld_r8_imm8("D", mmu),
-            0x1E => self.ld_r8_imm8("E", mmu),
-            0x26 => self.ld_r8_imm8("H", mmu),
-            0x2E => self.ld_r8_imm8("L", mmu),
+            0x06 => self.ld_r8_imm8(&mut self.b, mmu),
+            0x0E => self.ld_r8_imm8(&mut self.c, mmu),
+            0x16 => self.ld_r8_imm8(&mut self.d, mmu),
+            0x1E => self.ld_r8_imm8(&mut self.e, mmu),
+            0x26 => self.ld_r8_imm8(&mut self.h, mmu),
+            0x2E => self.ld_r8_imm8(&mut self.l, mmu),
             0x36 => self.ld_hl_mem_imm8(mmu), // LD (HL), n8
-            0x3E => self.ld_r8_imm8("A", mmu),
+            0x3E => self.ld_r8_imm8(&mut self.a, mmu),
 
             // ==========================================
             // OPERAZIONI ARITMETICHE SU HL (ADD HL, r16)
@@ -245,64 +273,64 @@ impl Cpu {
             // Esplicitati riga per riga per massima efficienza
             // ==========================================
             // Destinazione B
-            0x40 => self.ld_r8_r8("B", "B"),
-            0x41 => self.ld_r8_r8("B", "C"),
-            0x42 => self.ld_r8_r8("B", "D"),
-            0x43 => self.ld_r8_r8("B", "E"),
-            0x44 => self.ld_r8_r8("B", "H"),
-            0x45 => self.ld_r8_r8("B", "L"),
+            0x40 => self.b = self.ld_r8_r8(self.b),
+            0x41 => self.b = self.ld_r8_r8(self.c),
+            0x42 => self.b = self.ld_r8_r8(self.d),
+            0x43 => self.b = self.ld_r8_r8(self.e),
+            0x44 => self.b = self.ld_r8_r8(self.h),
+            0x45 => self.b = self.ld_r8_r8(self.l),
             0x46 => self.b = self.ld_r8_mem_hl(mmu), // LD B, (HL)
-            0x47 => self.ld_r8_r8("B", "A"),
+            0x47 => self.b = self.ld_r8_r8(self.a),
 
             // Destinazione C
-            0x48 => self.ld_r8_r8("C", "B"),
-            0x49 => self.ld_r8_r8("C", "C"),
-            0x4A => self.ld_r8_r8("C", "D"),
-            0x4B => self.ld_r8_r8("C", "E"),
-            0x4C => self.ld_r8_r8("C", "H"),
-            0x4D => self.ld_r8_r8("C", "L"),
+            0x48 => self.c = self.ld_r8_r8(self.b),
+            0x49 => self.c = self.ld_r8_r8(self.c),
+            0x4A => self.c = self.ld_r8_r8(self.d),
+            0x4B => self.c = self.ld_r8_r8(self.e),
+            0x4C => self.c = self.ld_r8_r8(self.h),
+            0x4D => self.c = self.ld_r8_r8(self.l),
             0x4E => self.c = self.ld_r8_mem_hl(mmu), // LD C, (HL)
-            0x4F => self.ld_r8_r8("C", "A"),
+            0x4F => self.c = self.ld_r8_r8(self.a),
 
             // Destinazione D
-            0x50 => self.ld_r8_r8("D", "B"),
-            0x51 => self.ld_r8_r8("D", "C"),
-            0x52 => self.ld_r8_r8("D", "D"),
-            0x53 => self.ld_r8_r8("D", "E"),
-            0x54 => self.ld_r8_r8("D", "H"),
-            0x55 => self.ld_r8_r8("D", "L"),
+            0x50 => self.d = self.ld_r8_r8( self.b),
+            0x51 => self.d = self.ld_r8_r8( self.c),
+            0x52 => self.d = self.ld_r8_r8( self.d),
+            0x53 => self.d = self.ld_r8_r8( self.e),
+            0x54 => self.d = self.ld_r8_r8( self.h),
+            0x55 => self.d = self.ld_r8_r8( self.l),
             0x56 => self.d = self.ld_r8_mem_hl(mmu), // LD D, (HL)
-            0x57 => self.ld_r8_r8("D", "A"),
+            0x57 => self.d = self.ld_r8_r8( self.a),
 
             // Destinazione E
-            0x58 => self.ld_r8_r8("E", "B"),
-            0x59 => self.ld_r8_r8("E", "C"),
-            0x5A => self.ld_r8_r8("E", "D"),
-            0x5B => self.ld_r8_r8("E", "E"),
-            0x5C => self.ld_r8_r8("E", "H"),
-            0x5D => self.ld_r8_r8("E", "L"),
+            0x58 => self.e = self.ld_r8_r8(self.b),
+            0x59 => self.e = self.ld_r8_r8(self.c),
+            0x5A => self.e = self.ld_r8_r8(self.d),
+            0x5B => self.e = self.ld_r8_r8(self.e),
+            0x5C => self.e = self.ld_r8_r8(self.h),
+            0x5D => self.e = self.ld_r8_r8(self.l),
             0x5E => self.e = self.ld_r8_mem_hl(mmu), // LD E, (HL)
-            0x5F => self.ld_r8_r8("E", "A"),
+            0x5F => self.a = self.ld_r8_r8(self.e),
 
             // Destinazione H
-            0x60 => self.ld_r8_r8("H", "B"),
-            0x61 => self.ld_r8_r8("H", "C"),
-            0x62 => self.ld_r8_r8("H", "D"),
-            0x63 => self.ld_r8_r8("H", "E"),
-            0x64 => self.ld_r8_r8("H", "H"),
-            0x65 => self.ld_r8_r8("H", "L"),
+            0x60 => self.h = self.ld_r8_r8(self.b),
+            0x61 => self.h = self.ld_r8_r8(self.c),
+            0x62 => self.h = self.ld_r8_r8(self.d),
+            0x63 => self.h = self.ld_r8_r8(self.e),
+            0x64 => self.h = self.ld_r8_r8(self.h),
+            0x65 => self.h = self.ld_r8_r8(self.l),
             0x66 => self.h = self.ld_r8_mem_hl(mmu), // LD H, (HL)
-            0x67 => self.ld_r8_r8("H", "A"),
+            0x67 => self.h = self.ld_r8_r8(self.a),
 
             // Destinazione L
-            0x68 => self.ld_r8_r8("L", "B"),
-            0x69 => self.ld_r8_r8("L", "C"),
-            0x6A => self.ld_r8_r8("L", "D"),
-            0x6B => self.ld_r8_r8("L", "E"),
-            0x6C => self.ld_r8_r8("L", "H"),
-            0x6D => self.ld_r8_r8("L", "L"),
+            0x68 => self.l = self.ld_r8_r8(self.b),
+            0x69 => self.l = self.ld_r8_r8(self.c),
+            0x6A => self.l = self.ld_r8_r8(self.d),
+            0x6B => self.l = self.ld_r8_r8(self.e),
+            0x6C => self.l = self.ld_r8_r8(self.h),
+            0x6D => self.l = self.ld_r8_r8(self.l),
             0x6E => self.l = self.ld_r8_mem_hl(mmu), // LD L, (HL)
-            0x6F => self.ld_r8_r8("L", "A"),
+            0x6F => self.l = self.ld_r8_r8(self.a),
 
             // Scrittura in memoria da registro (LD (HL), r8)
             // Nota: 0x76 è HALT ed è già gestito in alto, quindi non viene mappato qui!
@@ -315,14 +343,14 @@ impl Cpu {
             0x77 => self.ld_mem_hl_r8(mmu, self.a),
 
             // Destinazione A
-            0x78 => self.ld_r8_r8("A", "B"),
-            0x79 => self.ld_r8_r8("A", "C"),
-            0x7A => self.ld_r8_r8("A", "D"),
-            0x7B => self.ld_r8_r8("A", "E"),
-            0x7C => self.ld_r8_r8("A", "H"),
-            0x7D => self.ld_r8_r8("A", "L"),
+            0x78 => self.a = self.ld_r8_r8(self.b),
+            0x79 => self.a = self.ld_r8_r8(self.c),
+            0x7A => self.a = self.ld_r8_r8(self.d),
+            0x7B => self.a = self.ld_r8_r8(self.e),
+            0x7C => self.a = self.ld_r8_r8(self.h),
+            0x7D => self.a = self.ld_r8_r8(self.l),
             0x7E => self.a = self.ld_r8_mem_hl(mmu), // LD A, (HL)
-            0x7F => self.ld_r8_r8("A", "A"),
+            0x7F => self.a = self.ld_r8_r8(self.a),
 
             // ==========================================
             // BLOCCO ALU REGISTRI (0x80 - 0xBF)
