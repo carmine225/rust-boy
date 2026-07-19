@@ -148,9 +148,9 @@ impl Cpu {
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(12);
     }
-    pub fn add_hl_r16(&mut self, value: u16) {
+    pub fn add_hl_r16(&mut self, src: u16) {
         let hl_32 = get_u16register!(self, self.h, self.l) as u32;
-        let val_32 = value as u32;
+        let val_32 = src as u32;
         let result_32 = hl_32 + val_32;
         self.set_flag_n(false); // Sempre false nelle addizioni
         let half_carry = ((hl_32 & 0x0FFF) + (val_32 & 0x0FFF)) > 0x0FFF;
@@ -161,13 +161,13 @@ impl Cpu {
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(8);
     }
-    pub fn ld_mem_r16_a(&mut self, mmu: &mut Mmu, value: u16) {
-        mmu.write_byte(value, self.a);
+    pub fn ld_mem_r16_a(&mut self, mmu: &mut Mmu, src: u16) {
+        mmu.write_byte(src, self.a);
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(8);
     }
-    pub fn ld_a_mem_r16(&mut self, mmu: &mut Mmu, value: u16) {
-        self.a = mmu.read_byte(value);
+    pub fn ld_a_mem_r16(&mut self, mmu: &mut Mmu, src: u16) {
+        self.a = mmu.read_byte(src);
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(8);
     }
@@ -216,18 +216,18 @@ impl Cpu {
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(8);
     }
-    pub fn ld_mem_hl_r8(&mut self, mmu: &mut Mmu, value: u8) {
+    pub fn ld_mem_hl_r8(&mut self, mmu: &mut Mmu, src: u8) {
         let hl = get_u16register!(self, self.h, self.l);
-        mmu.write_byte(hl, value);
+        mmu.write_byte(hl, src);
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(8); // Aggiorna il conteggio dei cicli in base all'operazione
     }
-    pub fn ld_r8_mem_hl(&mut self, mmu: &mut Mmu) -> u8 {
+    pub fn ld_r8_mem_hl(&mut self, dst: &mut u8, mmu: &mut Mmu) {
         let hl = get_u16register!(self, self.h, self.l);
         let data = mmu.read_byte(hl);
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(8);
-        data
+        *dst = data;
     }
     pub fn alu_add_mem_hl(&mut self, mmu: &mut Mmu) {
         let hl = get_u16register!(self, self.h, self.l);
@@ -243,8 +243,19 @@ impl Cpu {
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(8);
     }
-    pub fn alu_sub_mem_hl(&mut self, _mmu: &mut Mmu) {
-        todo!("Implement alu_sub_mem_hl")
+    pub fn alu_sub_mem_hl(&mut self, mmu: &mut Mmu) {
+        let hl = get_u16register!(self, self.h, self.l);
+        let value = mmu.read_byte(hl);
+        let final_result = self.a.wrapping_sub(value);
+        self.set_flag_z(final_result == 0);
+        self.set_flag_n(true);
+        let half_borrow = (self.a & 0x0F) < (value & 0x0F);
+        self.set_flag_h(half_borrow);
+        let borrow = self.a < value;
+        self.set_flag_c(borrow);
+        self.a = final_result;
+        self.pc = self.pc.wrapping_add(1);
+        self.cycles = self.cycles.wrapping_add(8);
     }
     pub fn alu_cp_mem_hl(&mut self, mmu: &mut Mmu) {
         let hl = get_u16register!(self, self.h, self.l);
@@ -323,31 +334,31 @@ impl Cpu {
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(8);
     }
-    pub fn ld_r16_imm16(&mut self, value: &mut u16, mmu: &mut Mmu) {
+    pub fn ld_r16_imm16(&mut self, src: &mut u16, mmu: &mut Mmu) {
         self.pc = self.pc.wrapping_add(1);
         let value_low = mmu.read_byte(self.pc);
         self.pc = self.pc.wrapping_add(1);
         let value_high = mmu.read_byte(self.pc);
         let final_value = (value_high as u16) << 8 | (value_low as u16);
-        *value = final_value;
+        *src = final_value;
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(12);
     }
-    pub fn inc_r16(&mut self, value: &mut u16) {
-        *value = value.wrapping_add(1);
+    pub fn inc_r16(&mut self, src: &mut u16) {
+        *src = src.wrapping_add(1);
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(8);
     }
-    pub fn dec_r16(&mut self, value: &mut u16) {
-        *value = value.wrapping_sub(1);
+    pub fn dec_r16(&mut self, src: &mut u16) {
+        *src = src.wrapping_sub(1);
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(8);
     }
-    pub fn inc_r8(&mut self, value: &mut u8) -> u8 {
-        let result = value.wrapping_add(1);
+    pub fn inc_r8(&mut self, src: &mut u8) -> u8 {
+        let result = src.wrapping_add(1);
         self.set_flag_z(result == 0);
         self.set_flag_n(false);
-        self.set_flag_h((*value & 0x0F) == 0x0F);
+        self.set_flag_h((*src & 0x0F) == 0x0F);
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(4);
         result
@@ -380,14 +391,85 @@ impl Cpu {
             self.cycles = self.cycles.wrapping_add(8);
         }
     }
-    pub fn ld_r8_r8(&mut self, src: u8) -> u8 {
+    pub fn ld_r8_r8(&mut self, dst: &mut u8, src: u8) {
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(4);
-        src
+        *dst = src;
     }
-
-    pub fn alu_op(&mut self, _op: &str, _reg: &str) {
-        todo!("Implement alu_op")
+    pub fn alu_add(&mut self, src: u8) {
+        let result = (self.a as u16) + (src as u16);
+        let final_result = result as u8;
+        self.set_flag_z(final_result == 0);
+        self.set_flag_n(false);
+        let half_carry = ((self.a & 0x0F) + (src & 0x0F)) > 0x0F;
+        self.set_flag_h(half_carry);
+        self.set_flag_c(result > 0xFF);
+        self.a = final_result;
+        self.pc = self.pc.wrapping_add(1);
+        self.cycles = self.cycles.wrapping_add(4);
+    }
+    pub fn alu_adc(&mut self, src: u8) {
+        let carry = if self.get_flag_c() { 1 } else { 0 };
+        let final_result = self.a.wrapping_add(src).wrapping_add(carry);
+        self.set_flag_z(final_result == 0);
+        self.set_flag_n(false);
+        let half_carry = ((self.a & 0x0F) + (src & 0x0F) + carry) > 0x0F;
+        self.set_flag_h(half_carry);
+        let overflow_check = (self.a as u16) + (src as u16) + (carry as u16);
+        self.set_flag_c(overflow_check > 0xFF);
+        self.a = final_result;
+        self.pc = self.pc.wrapping_add(1);
+        self.cycles = self.cycles.wrapping_add(4);
+    }
+    pub fn alu_sub(&mut self, src: u8) {
+        let final_result = self.a.wrapping_sub(src);
+        self.set_flag_z(final_result == 0);
+        self.set_flag_n(true);
+        let half_borrow = (self.a & 0x0F) < (src & 0x0F);
+        self.set_flag_h(half_borrow);
+        let borrow = self.a < src;
+        self.set_flag_c(borrow);
+        self.a = final_result;
+        self.pc = self.pc.wrapping_add(1);
+        self.cycles = self.cycles.wrapping_add(4);
+    }
+    pub fn alu_and(&mut self, src: u8) {
+        self.a &= src;
+        self.set_flag_z(self.a == 0);
+        self.set_flag_n(false);
+        self.set_flag_h(true);
+        self.set_flag_c(false);
+        self.pc = self.pc.wrapping_add(1);
+        self.cycles = self.cycles.wrapping_add(4);
+    }
+    pub fn alu_xor(&mut self, src: u8) {
+        self.a ^= src;
+        self.set_flag_z(self.a == 0);
+        self.set_flag_n(false);
+        self.set_flag_h(false);
+        self.set_flag_c(false);
+        self.pc = self.pc.wrapping_add(1);
+        self.cycles = self.cycles.wrapping_add(4);
+    }
+    pub fn alu_or(&mut self, src: u8) {
+        self.a |= src;
+        self.set_flag_z(self.a == 0);
+        self.set_flag_n(false);
+        self.set_flag_h(false);
+        self.set_flag_c(false);
+        self.pc = self.pc.wrapping_add(1);
+        self.cycles = self.cycles.wrapping_add(4);
+    }
+    pub fn alu_cp(&mut self, src: u8) {
+        let result = (self.a as u16).wrapping_sub(src as u16);
+        let final_result = result as u8;
+        self.set_flag_z(final_result == 0);
+        self.set_flag_n(true);
+        let half_carry = (self.a & 0x0F) < (src & 0x0F);
+        self.set_flag_h(half_carry);
+        self.set_flag_c(self.a < src);
+        self.pc = self.pc.wrapping_add(1);
+        self.cycles = self.cycles.wrapping_add(4);
     }
 
     pub fn pop_r16(&mut self, _reg: Reg16) {
@@ -398,7 +480,7 @@ impl Cpu {
         todo!("Implement push_r16")
     }
 
-    pub fn ret_cond(&mut self, _condition: bool) {
+    pub fn ret_cond(&mut self, condition: bool) {
         todo!("Implement ret_cond")
     }
 

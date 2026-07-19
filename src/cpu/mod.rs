@@ -101,7 +101,7 @@ impl Cpu {
     }
 
     pub fn step(&mut self, mmu: &mut Mmu, pc: u16) {
-        let opcode = self.fetch_byte(mmu, pc); // Passa una reference al MMU per leggere l'opcode
+        let opcode = self.fetch_byte(mmu, pc);
         match opcode {
             // ==========================================
             // ISTRUZIONI DI CONTROLLO E SPECIALI
@@ -127,7 +127,7 @@ impl Cpu {
             // ==========================================
             0x01 => {
                 let mut bc = get_u16register!(self, self.b, self.c);
-                self.ld_r16_imm16(&mut bc, mmu)
+                self.ld_r16_imm16(&mut bc, mmu);
                 set_u16register!(self, self.b, self.c, bc);
             }
             0x11 => {
@@ -147,36 +147,36 @@ impl Cpu {
             // ==========================================
             0x03 => {
                 let mut bc = get_u16register!(self, self.b, self.c);
-                self.inc_r16(&mut bc)
+                self.inc_r16(&mut bc);
                 set_u16register!(self, self.b, self.c, bc);
-            },
+            }
             0x13 => {
                 let mut de = get_u16register!(self, self.d, self.e);
                 self.inc_r16(&mut de);
                 set_u16register!(self, self.d, self.e, de);
-            },
+            }
             0x23 => {
                 let mut hl = get_u16register!(self, self.h, self.l);
                 self.inc_r16(&mut hl);
                 set_u16register!(self, self.h, self.l, hl);
-            },
+            }
             0x33 => self.inc_r16(&mut self.sp),
 
             0x0B => {
                 let mut bc = get_u16register!(self, self.b, self.c);
                 self.dec_r16(&mut bc);
                 set_u16register!(self, self.b, self.c, bc);
-            },
+            }
             0x1B => {
                 let mut de = get_u16register!(self, self.d, self.e);
                 self.dec_r16(&mut de);
                 set_u16register!(self, self.d, self.e, de);
-            },
+            }
             0x2B => {
                 let mut hl = get_u16register!(self, self.h, self.l);
                 self.dec_r16(&mut hl);
                 set_u16register!(self, self.h, self.l, hl);
-            },
+            }
             0x3B => self.dec_r16(&mut self.sp),
 
             // ==========================================
@@ -195,7 +195,7 @@ impl Cpu {
             0x0D => self.c = self.dec_r8(&mut self.c),
             0x15 => self.d = self.dec_r8(&mut self.d),
             0x1D => self.e = self.dec_r8(&mut self.e),
-            0x25 => self.h =self.dec_r8(&mut self.h),
+            0x25 => self.h = self.dec_r8(&mut self.h),
             0x2C => self.l = self.dec_r8(&mut self.l),
             0x35 => self.dec_hl_mem(mmu), // Speciale: decrementa la memoria puntata da (HL)
             0x3D => self.a = self.dec_r8(&mut self.a),
@@ -273,64 +273,64 @@ impl Cpu {
             // Esplicitati riga per riga per massima efficienza
             // ==========================================
             // Destinazione B
-            0x40 => self.b = self.ld_r8_r8(self.b),
-            0x41 => self.b = self.ld_r8_r8(self.c),
-            0x42 => self.b = self.ld_r8_r8(self.d),
-            0x43 => self.b = self.ld_r8_r8(self.e),
-            0x44 => self.b = self.ld_r8_r8(self.h),
-            0x45 => self.b = self.ld_r8_r8(self.l),
-            0x46 => self.b = self.ld_r8_mem_hl(mmu), // LD B, (HL)
-            0x47 => self.b = self.ld_r8_r8(self.a),
+            0x40 => self.ld_r8_r8(&mut self.b, self.b),
+            0x41 => self.ld_r8_r8(&mut self.b, self.c),
+            0x42 => self.ld_r8_r8(&mut self.b, self.d),
+            0x43 => self.ld_r8_r8(&mut self.b, self.e),
+            0x44 => self.ld_r8_r8(&mut self.b, self.h),
+            0x45 => self.ld_r8_r8(&mut self.b, self.l),
+            0x46 => self.ld_r8_mem_hl(&mut self.b, mmu), // LD B, (HL)
+            0x47 => self.ld_r8_r8(&mut self.b, self.a),
 
             // Destinazione C
-            0x48 => self.c = self.ld_r8_r8(self.b),
-            0x49 => self.c = self.ld_r8_r8(self.c),
-            0x4A => self.c = self.ld_r8_r8(self.d),
-            0x4B => self.c = self.ld_r8_r8(self.e),
-            0x4C => self.c = self.ld_r8_r8(self.h),
-            0x4D => self.c = self.ld_r8_r8(self.l),
-            0x4E => self.c = self.ld_r8_mem_hl(mmu), // LD C, (HL)
-            0x4F => self.c = self.ld_r8_r8(self.a),
+            0x48 => self.ld_r8_r8(&mut self.c, self.b),
+            0x49 => self.ld_r8_r8(&mut self.c, self.c),
+            0x4A => self.ld_r8_r8(&mut self.c, self.d),
+            0x4B => self.ld_r8_r8(&mut self.c, self.e),
+            0x4C => self.ld_r8_r8(&mut self.c, self.h),
+            0x4D => self.ld_r8_r8(&mut self.c, self.l),
+            0x4E => self.ld_r8_mem_hl(&mut self.c, mmu), // LD C, (HL)
+            0x4F => self.ld_r8_r8(&mut self.c, self.a),
 
             // Destinazione D
-            0x50 => self.d = self.ld_r8_r8( self.b),
-            0x51 => self.d = self.ld_r8_r8( self.c),
-            0x52 => self.d = self.ld_r8_r8( self.d),
-            0x53 => self.d = self.ld_r8_r8( self.e),
-            0x54 => self.d = self.ld_r8_r8( self.h),
-            0x55 => self.d = self.ld_r8_r8( self.l),
-            0x56 => self.d = self.ld_r8_mem_hl(mmu), // LD D, (HL)
-            0x57 => self.d = self.ld_r8_r8( self.a),
+            0x50 => self.ld_r8_r8(&mut self.d, self.b),
+            0x51 => self.ld_r8_r8(&mut self.d, self.c),
+            0x52 => self.ld_r8_r8(&mut self.d, self.d),
+            0x53 => self.ld_r8_r8(&mut self.d, self.e),
+            0x54 => self.ld_r8_r8(&mut self.d, self.h),
+            0x55 => self.ld_r8_r8(&mut self.d, self.l),
+            0x56 => self.ld_r8_mem_hl(&mut self.d, mmu), // LD D, (HL)
+            0x57 => self.ld_r8_r8(&mut self.d, self.a),
 
             // Destinazione E
-            0x58 => self.e = self.ld_r8_r8(self.b),
-            0x59 => self.e = self.ld_r8_r8(self.c),
-            0x5A => self.e = self.ld_r8_r8(self.d),
-            0x5B => self.e = self.ld_r8_r8(self.e),
-            0x5C => self.e = self.ld_r8_r8(self.h),
-            0x5D => self.e = self.ld_r8_r8(self.l),
-            0x5E => self.e = self.ld_r8_mem_hl(mmu), // LD E, (HL)
-            0x5F => self.a = self.ld_r8_r8(self.e),
+            0x58 => self.ld_r8_r8(&mut self.e, self.b),
+            0x59 => self.ld_r8_r8(&mut self.e, self.c),
+            0x5A => self.ld_r8_r8(&mut self.e, self.d),
+            0x5B => self.ld_r8_r8(&mut self.e, self.e),
+            0x5C => self.ld_r8_r8(&mut self.e, self.h),
+            0x5D => self.ld_r8_r8(&mut self.e, self.l),
+            0x5E => self.ld_r8_mem_hl(&mut self.e, mmu), // LD E, (HL)
+            0x5F => self.ld_r8_r8(&mut self.e, self.a),
 
             // Destinazione H
-            0x60 => self.h = self.ld_r8_r8(self.b),
-            0x61 => self.h = self.ld_r8_r8(self.c),
-            0x62 => self.h = self.ld_r8_r8(self.d),
-            0x63 => self.h = self.ld_r8_r8(self.e),
-            0x64 => self.h = self.ld_r8_r8(self.h),
-            0x65 => self.h = self.ld_r8_r8(self.l),
-            0x66 => self.h = self.ld_r8_mem_hl(mmu), // LD H, (HL)
-            0x67 => self.h = self.ld_r8_r8(self.a),
+            0x60 => self.ld_r8_r8(&mut self.h, self.b),
+            0x61 => self.ld_r8_r8(&mut self.h, self.c),
+            0x62 => self.ld_r8_r8(&mut self.h, self.d),
+            0x63 => self.ld_r8_r8(&mut self.h, self.e),
+            0x64 => self.ld_r8_r8(&mut self.h, self.h),
+            0x65 => self.ld_r8_r8(&mut self.h, self.l),
+            0x66 => self.ld_r8_mem_hl(&mut self.h, mmu), // LD H, (HL)
+            0x67 => self.ld_r8_r8(&mut self.h, self.a),
 
             // Destinazione L
-            0x68 => self.l = self.ld_r8_r8(self.b),
-            0x69 => self.l = self.ld_r8_r8(self.c),
-            0x6A => self.l = self.ld_r8_r8(self.d),
-            0x6B => self.l = self.ld_r8_r8(self.e),
-            0x6C => self.l = self.ld_r8_r8(self.h),
-            0x6D => self.l = self.ld_r8_r8(self.l),
-            0x6E => self.l = self.ld_r8_mem_hl(mmu), // LD L, (HL)
-            0x6F => self.l = self.ld_r8_r8(self.a),
+            0x68 => self.ld_r8_r8(&mut self.l, self.b),
+            0x69 => self.ld_r8_r8(&mut self.l, self.c),
+            0x6A => self.ld_r8_r8(&mut self.l, self.d),
+            0x6B => self.ld_r8_r8(&mut self.l, self.e),
+            0x6C => self.ld_r8_r8(&mut self.l, self.h),
+            0x6D => self.ld_r8_r8(&mut self.l, self.l),
+            0x6E => self.ld_r8_mem_hl(&mut self.l, mmu), // LD L, (HL)
+            0x6F => self.ld_r8_r8(&mut self.l, self.a),
 
             // Scrittura in memoria da registro (LD (HL), r8)
             // Nota: 0x76 è HALT ed è già gestito in alto, quindi non viene mappato qui!
@@ -343,98 +343,98 @@ impl Cpu {
             0x77 => self.ld_mem_hl_r8(mmu, self.a),
 
             // Destinazione A
-            0x78 => self.a = self.ld_r8_r8(self.b),
-            0x79 => self.a = self.ld_r8_r8(self.c),
-            0x7A => self.a = self.ld_r8_r8(self.d),
-            0x7B => self.a = self.ld_r8_r8(self.e),
-            0x7C => self.a = self.ld_r8_r8(self.h),
-            0x7D => self.a = self.ld_r8_r8(self.l),
-            0x7E => self.a = self.ld_r8_mem_hl(mmu), // LD A, (HL)
-            0x7F => self.a = self.ld_r8_r8(self.a),
+            0x78 => self.ld_r8_r8(&mut self.a, self.b),
+            0x79 => self.ld_r8_r8(&mut self.a, self.c),
+            0x7A => self.ld_r8_r8(&mut self.a, self.d),
+            0x7B => self.ld_r8_r8(&mut self.a, self.e),
+            0x7C => self.ld_r8_r8(&mut self.a, self.h),
+            0x7D => self.ld_r8_r8(&mut self.a, self.l),
+            0x7E => self.ld_r8_mem_hl(&mut self.a, mmu), // LD A, (HL)
+            0x7F => self.ld_r8_r8(&mut self.a, self.a),
 
             // ==========================================
             // BLOCCO ALU REGISTRI (0x80 - 0xBF)
             // Ogni riga corrisponde a un'operazione specifica
             // ==========================================
             // ADD A, r8
-            0x80 => self.alu_op("alu_add", "B"),
-            0x81 => self.alu_op("alu_add", "C"),
-            0x82 => self.alu_op("alu_add", "D"),
-            0x83 => self.alu_op("alu_add", "E"),
-            0x84 => self.alu_op("alu_add", "H"),
-            0x85 => self.alu_op("alu_add", "L"),
+            0x80 => self.alu_add(self.b),
+            0x81 => self.alu_add(self.c),
+            0x82 => self.alu_add(self.d),
+            0x83 => self.alu_add(self.e),
+            0x84 => self.alu_add(self.h),
+            0x85 => self.alu_add(self.l),
             0x86 => self.alu_add_mem_hl(mmu),
-            0x87 => self.alu_op("alu_add", "A"),
+            0x87 => self.alu_add(self.a),
 
             // ADC A, r8
-            0x88 => self.alu_op("alu_adc", "B"),
-            0x89 => self.alu_op("alu_adc", "C"),
-            0x8A => self.alu_op("alu_adc", "D"),
-            0x8B => self.alu_op("alu_adc", "E"),
-            0x8C => self.alu_op("alu_adc", "H"),
-            0x8D => self.alu_op("alu_adc", "L"),
+            0x88 => self.alu_adc(self.b),
+            0x89 => self.alu_adc(self.c),
+            0x8A => self.alu_adc(self.d),
+            0x8B => self.alu_adc(self.e),
+            0x8C => self.alu_adc(self.h),
+            0x8D => self.alu_adc(self.l),
             0x8E => self.alu_adc_mem_hl(mmu),
-            0x8F => self.alu_op("alu_adc", "A"),
+            0x8F => self.alu_adc(self.a),
 
             // SUB A, r8
-            0x90 => self.alu_op("alu_sub", "B"),
-            0x91 => self.alu_op("alu_sub", "C"),
-            0x92 => self.alu_op("alu_sub", "D"),
-            0x93 => self.alu_op("alu_sub", "E"),
-            0x94 => self.alu_op("alu_sub", "H"),
-            0x95 => self.alu_op("alu_sub", "L"),
+            0x90 => self.alu_sub(self.b),
+            0x91 => self.alu_sub(self.c),
+            0x92 => self.alu_sub(self.d),
+            0x93 => self.alu_sub(self.e),
+            0x94 => self.alu_sub(self.h),
+            0x95 => self.alu_sub(self.l),
             0x96 => self.alu_sub_mem_hl(mmu),
-            0x97 => self.alu_op("alu_sub", "A"),
+            0x97 => self.alu_sub(self.a),
 
             // SBC A, r8
-            0x98 => self.alu_op("alu_sbc", "B"),
-            0x99 => self.alu_op("alu_sbc", "C"),
-            0x9A => self.alu_op("alu_sbc", "D"),
-            0x9B => self.alu_op("alu_sbc", "E"),
-            0x9C => self.alu_op("alu_sbc", "H"),
-            0x9D => self.alu_op("alu_sbc", "L"),
+            0x98 => self.alu_adc(self.b),
+            0x99 => self.alu_adc(self.c),
+            0x9A => self.alu_adc(self.d),
+            0x9B => self.alu_adc(self.e),
+            0x9C => self.alu_adc(self.h),
+            0x9D => self.alu_adc(self.l),
             0x9E => self.alu_sbc_mem_hl(mmu),
-            0x9F => self.alu_op("alu_sbc", "A"),
+            0x9F => self.alu_adc(self.a),
 
             // AND A, r8
-            0xA0 => self.alu_op("alu_and", "B"),
-            0xA1 => self.alu_op("alu_and", "C"),
-            0xA2 => self.alu_op("alu_and", "D"),
-            0xA3 => self.alu_op("alu_and", "E"),
-            0xA4 => self.alu_op("alu_and", "H"),
-            0xA5 => self.alu_op("alu_and", "L"),
+            0xA0 => self.alu_and(self.b),
+            0xA1 => self.alu_and(self.c),
+            0xA2 => self.alu_and(self.d),
+            0xA3 => self.alu_and(self.e),
+            0xA4 => self.alu_and(self.h),
+            0xA5 => self.alu_and(self.l),
             0xA6 => self.alu_and_mem_hl(mmu),
-            0xA7 => self.alu_op("alu_and", "A"),
+            0xA7 => self.alu_and(self.a),
 
             // XOR A, r8
-            0xA8 => self.alu_op("alu_xor", "B"),
-            0xA9 => self.alu_op("alu_xor", "C"),
-            0xAA => self.alu_op("alu_xor", "D"),
-            0xAB => self.alu_op("alu_xor", "E"),
-            0xAC => self.alu_op("alu_xor", "H"),
-            0xAD => self.alu_op("alu_xor", "L"),
+            0xA8 => self.alu_xor(self.b),
+            0xA9 => self.alu_xor(self.c),
+            0xAA => self.alu_xor(self.d),
+            0xAB => self.alu_xor(self.e),
+            0xAC => self.alu_xor(self.h),
+            0xAD => self.alu_xor(self.l),
             0xAE => self.alu_xor_mem_hl(mmu),
-            0xAF => self.alu_op("alu_xor", "A"),
+            0xAF => self.alu_xor(self.a),
 
             // OR A, r8
-            0xB0 => self.alu_op("alu_or", "B"),
-            0xB1 => self.alu_op("alu_or", "C"),
-            0xB2 => self.alu_op("alu_or", "D"),
-            0xB3 => self.alu_op("alu_or", "E"),
-            0xB4 => self.alu_op("alu_or", "H"),
-            0xB5 => self.alu_op("alu_or", "L"),
+            0xB0 => self.alu_or(self.b),
+            0xB1 => self.alu_or(self.c),
+            0xB2 => self.alu_or(self.d),
+            0xB3 => self.alu_or(self.e),
+            0xB4 => self.alu_or(self.h),
+            0xB5 => self.alu_or(self.l),
             0xB6 => self.alu_or_mem_hl(mmu),
-            0xB7 => self.alu_op("alu_or", "A"),
+            0xB7 => self.alu_or(self.a),
 
             // CP A, r8
-            0xB8 => self.alu_op("alu_cp", "B"),
-            0xB9 => self.alu_op("alu_cp", "C"),
-            0xBA => self.alu_op("alu_cp", "D"),
-            0xBB => self.alu_op("alu_cp", "E"),
-            0xBC => self.alu_op("alu_cp", "H"),
-            0xBD => self.alu_op("alu_cp", "L"),
+            0xB8 => self.alu_cp(self.b),
+            0xB9 => self.alu_cp(self.c),
+            0xBA => self.alu_cp(self.d),
+            0xBB => self.alu_cp(self.e),
+            0xBC => self.alu_cp(self.h),
+            0xBD => self.alu_cp(self.l),
             0xBE => self.alu_cp_mem_hl(mmu),
-            0xBF => self.alu_op("alu_cp", "A"),
+            0xBF => self.alu_cp(self.a),
 
             // ==========================================
             // GESTIONE STACK, CALL, RET, JP
