@@ -222,12 +222,12 @@ impl Cpu {
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(8); // Aggiorna il conteggio dei cicli in base all'operazione
     }
-    pub fn ld_r8_mem_hl(&mut self, dst: &mut u8, mmu: &mut Mmu) {
+    pub fn ld_r8_mem_hl(&mut self, mmu: &mut Mmu) -> u8 {
         let hl = get_u16register!(self, self.h, self.l);
         let data = mmu.read_byte(hl);
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(8);
-        *dst = data;
+        data
     }
     pub fn alu_add_mem_hl(&mut self, mmu: &mut Mmu) {
         let hl = get_u16register!(self, self.h, self.l);
@@ -334,49 +334,50 @@ impl Cpu {
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(8);
     }
-    pub fn ld_r16_imm16(&mut self, src: &mut u16, mmu: &mut Mmu) {
+    pub fn ld_r16_imm16(&mut self, mmu: &mut Mmu) -> u16 {
         self.pc = self.pc.wrapping_add(1);
         let value_low = mmu.read_byte(self.pc);
         self.pc = self.pc.wrapping_add(1);
         let value_high = mmu.read_byte(self.pc);
         let final_value = (value_high as u16) << 8 | (value_low as u16);
-        *src = final_value;
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(12);
+        final_value
     }
-    pub fn inc_r16(&mut self, src: &mut u16) {
-        *src = src.wrapping_add(1);
+    pub fn inc_r16(&mut self, src: u16) -> u16 {
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(8);
+        src.wrapping_add(1)
     }
-    pub fn dec_r16(&mut self, src: &mut u16) {
-        *src = src.wrapping_sub(1);
+    pub fn dec_r16(&mut self, src: u16) -> u16 {
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(8);
+        src.wrapping_sub(1)
     }
-    pub fn inc_r8(&mut self, src: &mut u8) -> u8 {
+    pub fn inc_r8(&mut self, src: u8) -> u8 {
         let result = src.wrapping_add(1);
         self.set_flag_z(result == 0);
         self.set_flag_n(false);
-        self.set_flag_h((*src & 0x0F) == 0x0F);
+        self.set_flag_h((src & 0x0F) == 0x0F);
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(4);
         result
     }
-    pub fn dec_r8(&mut self, value: &mut u8) -> u8 {
-        let result = value.wrapping_sub(1);
+    pub fn dec_r8(&mut self, src: u8) -> u8 {
+        let result = src.wrapping_sub(1);
         self.set_flag_z(result == 0);
         self.set_flag_n(true);
-        self.set_flag_h((*value & 0x0F) == 0x00);
+        self.set_flag_h((src & 0x0F) == 0x00);
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(4);
         result
     }
-    pub fn ld_r8_imm8(&mut self, value: &mut u8, mmu: &mut Mmu) {
+    pub fn ld_r8_imm8(&mut self, mmu: &mut Mmu) -> u8 {
         self.pc = self.pc.wrapping_add(1);
-        *value = mmu.read_byte(self.pc);
+        let value = mmu.read_byte(self.pc);
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(8);
+        value
     }
     pub fn jr_cond(&mut self, condition: bool, mmu: &Mmu) {
         self.pc = self.pc.wrapping_add(1);
@@ -391,10 +392,10 @@ impl Cpu {
             self.cycles = self.cycles.wrapping_add(8);
         }
     }
-    pub fn ld_r8_r8(&mut self, dst: &mut u8, src: u8) {
+    pub fn ld_r8_r8(&mut self, src: u8) -> u8 {
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(4);
-        *dst = src;
+        src
     }
     pub fn alu_add(&mut self, src: u8) {
         let result = (self.a as u16) + (src as u16);
@@ -471,13 +472,22 @@ impl Cpu {
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(4);
     }
-
-    pub fn pop_r16(&mut self, _reg: Reg16) {
-        todo!("Implement pop_r16")
+    pub fn pop_r16(&mut self, mmu: &mut Mmu) -> u16 {
+        let low = mmu.read_byte(self.sp);
+        self.sp = self.sp.wrapping_add(1);
+        let high = mmu.read_byte(self.sp);
+        self.sp = self.sp.wrapping_add(1);
+        self.pc = self.pc.wrapping_add(1);
+        self.cycles = self.cycles.wrapping_add(12);
+        low as u16 | ((high as u16) << 8)
     }
-
-    pub fn push_r16(&mut self, _reg: Reg16) {
-        todo!("Implement push_r16")
+    pub fn push_r16(&mut self, high: u8, low: u8, mmu: &mut Mmu) {
+        self.sp = self.sp.wrapping_sub(1);
+        mmu.write_byte(self.sp, high);
+        self.sp = self.sp.wrapping_sub(1);
+        mmu.write_byte(self.sp, low);
+        self.pc = self.pc.wrapping_add(1);
+        self.cycles = self.cycles.wrapping_add(16);
     }
 
     pub fn ret_cond(&mut self, condition: bool) {
