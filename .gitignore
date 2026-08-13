@@ -1,1 +1,3 @@
 /target
+# Ignora la configurazione locale di VS Code
+.vscode/
