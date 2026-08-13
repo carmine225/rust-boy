@@ -51,6 +51,8 @@ impl Cpu {
         }
         self.set_flag_z(self.a == 0);
         self.set_flag_h(false);
+        self.pc = self.pc.wrapping_add(1);
+        self.cycles = self.cycles.wrapping_add(4);
     }
     pub fn cpl(&mut self) {
         self.a = !self.a;
@@ -422,6 +424,19 @@ impl Cpu {
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(4);
     }
+    pub fn alu_sbc(&mut self, src: u8) {
+        let carry = if self.get_flag_c() { 1 } else { 0 };
+        let final_result = self.a.wrapping_sub(src).wrapping_sub(carry);
+        self.set_flag_z(final_result == 0);
+        self.set_flag_n(true);
+        let half_borrow = (self.a & 0x0F) < (src & 0x0F) + carry;
+        self.set_flag_h(half_borrow);
+        let borrow = (self.a as u16) < (src as u16) + (carry as u16);
+        self.set_flag_c(borrow);
+        self.a = final_result;
+        self.pc = self.pc.wrapping_add(1);
+        self.cycles = self.cycles.wrapping_add(4);
+    }
     pub fn alu_sub(&mut self, src: u8) {
         let final_result = self.a.wrapping_sub(src);
         self.set_flag_z(final_result == 0);
@@ -483,14 +498,19 @@ impl Cpu {
     }
     pub fn push_r16(&mut self, high: u8, low: u8, mmu: &mut Mmu) {
         self.sp = self.sp.wrapping_sub(1);
-        mmu.write_byte(self.sp, high);
-        self.sp = self.sp.wrapping_sub(1);
         mmu.write_byte(self.sp, low);
+        self.sp = self.sp.wrapping_sub(1);
+        mmu.write_byte(self.sp, high);
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(16);
     }
+    pub fn push_af(&mut self, mmu: &mut Mmu) {
+        let high = self.a;
+        let low = self.f & 0xF0; // I flag sono solo i 4 bit più significativi
+        self.push_r16(high, low, mmu);
+    }
 
-    pub fn ret_cond(&mut self, condition: bool) {
+    pub fn ret_cond(&mut self, _condition: bool) {
         todo!("Implement ret_cond")
     }
 
@@ -506,8 +526,8 @@ impl Cpu {
         todo!("Implement jp_cond")
     }
 
-    pub fn jp_inconditional(&mut self) {
-        todo!("Implement jp_inconditional")
+    pub fn jp(&mut self) {
+        todo!("Implement jp")
     }
 
     pub fn jp_hl(&mut self) {
@@ -518,8 +538,8 @@ impl Cpu {
         todo!("Implement call_cond")
     }
 
-    pub fn call_inconditional(&mut self) {
-        todo!("Implement call_inconditional")
+    pub fn call(&mut self) {
+        todo!("Implement call")
     }
 
     pub fn rst(&mut self, _target: u16) {
@@ -600,5 +620,11 @@ impl Cpu {
 
     pub fn ei(&mut self) {
         todo!("Implement ei")
+    }
+    pub fn cb(&mut self, mmu: &mut Mmu) {
+        let opcode = self.fetch_byte(mmu, self.pc + 1);
+        self.cb_prefixed(opcode, mmu);
+        self.pc = self.pc.wrapping_add(2);
+        self.cycles = self.cycles.wrapping_add(8); // Aggiorna il conteggio dei cicli in base all'operazione
     }
 }
