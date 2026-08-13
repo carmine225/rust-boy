@@ -33,8 +33,8 @@ cargo build --release
 ## Roadmap
 
 - ⏳ CPU core architecture
-- 🔄 Complete unprefixed opcode set implementation
-- ⏳ prefixed opcode set
+- 🔄 unprefixed opcode set
+- ✅ prefixed opcode set
 - ⏳ PPU graphics engine
 - ⏳ APU audio system
 - ⏳ Full Game Boy compatibility
