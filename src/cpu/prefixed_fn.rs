@@ -13,6 +13,7 @@ impl Cpu {
         self.set_flag_n(false);
         self.set_flag_h(false);
         self.set_flag_c(bit_7 == 1);
+
         res
     }
 
@@ -21,7 +22,7 @@ impl Cpu {
         let val = mmu.read_byte(hl);
         let res = self.rlc_r8(val);
         mmu.write_byte(hl, res);
-        self.cycles = self.cycles.wrapping_add(4); // 16 cicli totali
+        self.cycles = self.cycles.wrapping_add(8); // 16 cicli totali
     }
 
     // ==========================================
@@ -42,7 +43,7 @@ impl Cpu {
         let val = mmu.read_byte(hl);
         let res = self.rrc_r8(val);
         mmu.write_byte(hl, res);
-        self.cycles = self.cycles.wrapping_add(4);
+        self.cycles = self.cycles.wrapping_add(8);
     }
 
     // ==========================================
@@ -64,7 +65,7 @@ impl Cpu {
         let val = mmu.read_byte(hl);
         let res = self.rl_r8(val);
         mmu.write_byte(hl, res);
-        self.cycles = self.cycles.wrapping_add(4);
+        self.cycles = self.cycles.wrapping_add(8);
     }
 
     // ==========================================
@@ -86,7 +87,7 @@ impl Cpu {
         let val = mmu.read_byte(hl);
         let res = self.rr_r8(val);
         mmu.write_byte(hl, res);
-        self.cycles = self.cycles.wrapping_add(4);
+        self.cycles = self.cycles.wrapping_add(8);
     }
 
     // ==========================================
@@ -107,7 +108,7 @@ impl Cpu {
         let val = mmu.read_byte(hl);
         let res = self.sla_r8(val);
         mmu.write_byte(hl, res);
-        self.cycles = self.cycles.wrapping_add(4);
+        self.cycles = self.cycles.wrapping_add(8);
     }
 
     // ==========================================
@@ -129,7 +130,7 @@ impl Cpu {
         let val = mmu.read_byte(hl);
         let res = self.sra_r8(val);
         mmu.write_byte(hl, res);
-        self.cycles = self.cycles.wrapping_add(4);
+        self.cycles = self.cycles.wrapping_add(8);
     }
 
     // ==========================================
@@ -149,7 +150,7 @@ impl Cpu {
         let val = mmu.read_byte(hl);
         let res = self.swap_r8(val);
         mmu.write_byte(hl, res);
-        self.cycles = self.cycles.wrapping_add(4);
+        self.cycles = self.cycles.wrapping_add(8);
     }
 
     // ==========================================
@@ -170,7 +171,7 @@ impl Cpu {
         let val = mmu.read_byte(hl);
         let res = self.srl_r8(val);
         mmu.write_byte(hl, res);
-        self.cycles = self.cycles.wrapping_add(4);
+        self.cycles = self.cycles.wrapping_add(8);
     }
 
     // ==========================================
@@ -187,7 +188,7 @@ impl Cpu {
         let hl = get_u16register!(self, self.h, self.l);
         let val = mmu.read_byte(hl);
         self.bit_b_r8(bit, val);
-        self.cycles = self.cycles.wrapping_add(4); // 12 cicli totali
+        self.cycles = self.cycles.wrapping_add(4); // 12 cicli totali con cb()
     }
 
     // ==========================================
@@ -202,7 +203,7 @@ impl Cpu {
         let val = mmu.read_byte(hl);
         let res = self.res_b_r8(bit, val);
         mmu.write_byte(hl, res);
-        self.cycles = self.cycles.wrapping_add(4);
+        self.cycles = self.cycles.wrapping_add(8);
     }
 
     // ==========================================
@@ -217,6 +218,6 @@ impl Cpu {
         let val = mmu.read_byte(hl);
         let res = self.set_b_r8(bit, val);
         mmu.write_byte(hl, res);
-        self.cycles = self.cycles.wrapping_add(4);
+        self.cycles = self.cycles.wrapping_add(8);
     }
 }

@@ -3,13 +3,9 @@
 use crate::get_u16register;
 use crate::mmu::Mmu;
 use crate::set_u16register;
+mod flag_helper;
 mod prefixed_fn;
 mod unprefixed_fn;
-
-const FLAG_Z_MASK: u8 = 0x80; // 1000 0000
-const FLAG_N_MASK: u8 = 0x40; // 0100 0000
-const FLAG_H_MASK: u8 = 0x20; // 0010 0000
-const FLAG_C_MASK: u8 = 0x10; // 0001 0000
 
 pub struct Cpu {
     a: u8, // Accumulator
@@ -52,56 +48,10 @@ impl Cpu {
             interrupt_flag: 0,
         }
     }
-    // --- HELPER PER IL FLAG Z (ZERO) ---
-    fn get_flag_z(&self) -> bool {
-        (self.f & FLAG_Z_MASK) != 0
-    }
-    fn set_flag_z(&mut self, value: bool) {
-        if value {
-            self.f |= FLAG_Z_MASK; // Imposta il bit a 1
-        } else {
-            self.f &= !FLAG_Z_MASK; // Azzera il bit (0)
-        }
-    }
-
-    // --- HELPER PER IL FLAG N (SUBTRACTION) ---
-    fn get_flag_n(&self) -> bool {
-        (self.f & FLAG_N_MASK) != 0
-    }
-    fn set_flag_n(&mut self, value: bool) {
-        if value {
-            self.f |= FLAG_N_MASK;
-        } else {
-            self.f &= !FLAG_N_MASK;
-        }
-    }
-
-    // --- HELPER PER IL FLAG H (HALF-CARRY) ---
-    fn get_flag_h(&self) -> bool {
-        (self.f & FLAG_H_MASK) != 0
-    }
-    fn set_flag_h(&mut self, value: bool) {
-        if value {
-            self.f |= FLAG_H_MASK;
-        } else {
-            self.f &= !FLAG_H_MASK;
-        }
-    }
-
-    // --- HELPER PER IL FLAG C (CARRY) ---
-    fn get_flag_c(&self) -> bool {
-        (self.f & FLAG_C_MASK) != 0
-    }
-    fn set_flag_c(&mut self, value: bool) {
-        if value {
-            self.f |= FLAG_C_MASK;
-        } else {
-            self.f &= !FLAG_C_MASK;
-        }
-    }
 
     pub fn step(&mut self, mmu: &mut Mmu) {
-        let opcode = self.fetch_byte(mmu, self.pc);
+        let opcode = mmu.read_byte(self.pc);
+        self.pc = self.pc.wrapping_add(1);
         match opcode {
             // ==========================================
             // ISTRUZIONI DI CONTROLLO E SPECIALI
@@ -461,11 +411,11 @@ impl Cpu {
             0xF5 => self.push_af(mmu),
 
             // RET Condizionati ed Incondizionati
-            0xC0 => self.ret_cond(!self.get_flag_z()),
-            0xC8 => self.ret_cond(self.get_flag_z()),
-            0xD0 => self.ret_cond(!self.get_flag_c()),
-            0xD8 => self.ret_cond(self.get_flag_c()),
-            0xC9 => self.ret_inconditional(),
+            0xC0 => self.ret_cond(!self.get_flag_z(), mmu),
+            0xC8 => self.ret_cond(self.get_flag_z(), mmu),
+            0xD0 => self.ret_cond(!self.get_flag_c(), mmu),
+            0xD8 => self.ret_cond(self.get_flag_c(), mmu),
+            0xC9 => self.ret_incond(mmu),
             0xD9 => self.reti(),
 
             // JP Condizionati ed Incondizionati
@@ -834,9 +784,5 @@ impl Cpu {
             0xFE => self.set_b_hl_mem(7, mmu),
             0xFF => self.a = self.set_b_r8(7, self.a),
         }
-    }
-
-    fn fetch_byte(&mut self, mmu: &Mmu, pc: u16) -> u8 {
-        mmu.read_byte(pc)
     }
 }
