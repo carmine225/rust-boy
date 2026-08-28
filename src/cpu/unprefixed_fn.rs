@@ -460,7 +460,6 @@ impl Cpu {
         let low = self.f & 0xF0; // I flag sono solo i 4 bit più significativi
         self.push_r16(high, low, mmu);
     }
-
     pub fn ret_cond(&mut self, _condition: bool, mmu: &mut Mmu) {
         if _condition {
             self.ret_incond(mmu);
@@ -469,37 +468,55 @@ impl Cpu {
             self.cycles = self.cycles.wrapping_add(8);
         }
     }
-
     pub fn ret_incond(&mut self, mmu: &mut Mmu) {
         self.pc = self.pop_r16(mmu);
         self.cycles = self.cycles.wrapping_add(4);
     }
-
-    pub fn reti(&mut self) {
-        todo!("Implement reti")
+    pub fn reti(&mut self, mmu: &mut Mmu) {
+        self.ret_incond(mmu);
+        self.ime = true; // Abilita gli interrupt dopo il ritorno
     }
 
-    pub fn jp_cond(&mut self, _condition: bool) {
-        todo!("Implement jp_cond")
+    pub fn jp_cond(&mut self, _condition: bool, mmu: &Mmu) {
+        let addr_low = mmu.read_byte(self.pc);
+        self.pc = self.pc.wrapping_add(1);
+        let addr_high = mmu.read_byte(self.pc);
+        self.pc = self.pc.wrapping_add(1);
+        let addr = (addr_high as u16) << 8 | (addr_low as u16);
+
+        if _condition {
+            self.pc = addr;
+            self.cycles = self.cycles.wrapping_add(16); // Cicli extra se la condizione è vera
+        } else {
+            self.cycles = self.cycles.wrapping_add(12); // Cicli totali se la condizione è falsa
+        }
     }
 
-    pub fn jp(&mut self) {
-        todo!("Implement jp")
+    pub fn jp(&mut self, mmu: &Mmu) {
+        let addr_low = mmu.read_byte(self.pc);
+        self.pc = self.pc.wrapping_add(1);
+        let addr_high = mmu.read_byte(self.pc);
+        self.pc = self.pc.wrapping_add(1);
+        let addr = (addr_high as u16) << 8 | (addr_low as u16);
+        self.pc = addr;
+        self.cycles = self.cycles.wrapping_add(16);
     }
 
     pub fn jp_hl(&mut self) {
-        todo!("Implement jp_hl")
+        let addr = get_u16register!(self, self.h, self.l);
+        self.pc = addr;
+        self.cycles = self.cycles.wrapping_add(4);
     }
 
-    pub fn call_cond(&mut self, _condition: bool) {
+    pub fn call_cond(&mut self, _condition: bool, mmu: &Mmu) {
         todo!("Implement call_cond")
     }
 
-    pub fn call(&mut self) {
+    pub fn call(&mut self, mmu: &Mmu) {
         todo!("Implement call")
     }
 
-    pub fn rst(&mut self, _target: u16) {
+    pub fn rst(&mut self, _target: u16, mmu: &Mmu) {
         todo!("Implement rst")
     }
 

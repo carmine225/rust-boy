@@ -416,32 +416,32 @@ impl Cpu {
             0xD0 => self.ret_cond(!self.get_flag_c(), mmu),
             0xD8 => self.ret_cond(self.get_flag_c(), mmu),
             0xC9 => self.ret_incond(mmu),
-            0xD9 => self.reti(),
+            0xD9 => self.reti(mmu),
 
             // JP Condizionati ed Incondizionati
-            0xC2 => self.jp_cond(!self.get_flag_z()),
-            0xCA => self.jp_cond(self.get_flag_z()),
-            0xD2 => self.jp_cond(!self.get_flag_c()),
-            0xDA => self.jp_cond(self.get_flag_c()),
-            0xC3 => self.jp(),
+            0xC2 => self.jp_cond(!self.get_flag_z(), mmu),
+            0xCA => self.jp_cond(self.get_flag_z(), mmu),
+            0xD2 => self.jp_cond(!self.get_flag_c(), mmu),
+            0xDA => self.jp_cond(self.get_flag_c(), mmu),
+            0xC3 => self.jp(mmu),
             0xE9 => self.jp_hl(),
 
             // CALL Condizionati ed Incondizionati
-            0xC4 => self.call_cond(!self.get_flag_z()),
-            0xCC => self.call_cond(self.get_flag_z()),
-            0xD4 => self.call_cond(!self.get_flag_c()),
-            0xDC => self.call_cond(self.get_flag_c()),
-            0xCD => self.call(),
+            0xC4 => self.call_cond(!self.get_flag_z(), mmu),
+            0xCC => self.call_cond(self.get_flag_z(), mmu),
+            0xD4 => self.call_cond(!self.get_flag_c(), mmu),
+            0xDC => self.call_cond(self.get_flag_c(), mmu),
+            0xCD => self.call(mmu),
 
             // RESTART (RST)
-            0xC7 => self.rst(0x00),
-            0xCF => self.rst(0x08),
-            0xD7 => self.rst(0x10),
-            0xDF => self.rst(0x18),
-            0xE7 => self.rst(0x20),
-            0xEF => self.rst(0x28),
-            0xF7 => self.rst(0x30),
-            0xFF => self.rst(0x38),
+            0xC7 => self.rst(0x00, mmu),
+            0xCF => self.rst(0x08, mmu),
+            0xD7 => self.rst(0x10, mmu),
+            0xDF => self.rst(0x18, mmu),
+            0xE7 => self.rst(0x20, mmu),
+            0xEF => self.rst(0x28, mmu),
+            0xF7 => self.rst(0x30, mmu),
+            0xFF => self.rst(0x38, mmu),
 
             // ==========================================
             // OPERAZIONI ALU IMMEDIATE (Valori a 8 bit)
