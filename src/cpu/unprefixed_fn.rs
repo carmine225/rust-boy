@@ -476,8 +476,7 @@ impl Cpu {
         self.ret_incond(mmu);
         self.ime = true; // Abilita gli interrupt dopo il ritorno
     }
-
-    pub fn jp_cond(&mut self, _condition: bool, mmu: &Mmu) {
+    pub fn jp_cond(&mut self, _condition: bool, mmu: &mut Mmu) {
         let addr_low = mmu.read_byte(self.pc);
         self.pc = self.pc.wrapping_add(1);
         let addr_high = mmu.read_byte(self.pc);
@@ -491,8 +490,7 @@ impl Cpu {
             self.cycles = self.cycles.wrapping_add(12); // Cicli totali se la condizione è falsa
         }
     }
-
-    pub fn jp(&mut self, mmu: &Mmu) {
+    pub fn jp(&mut self, mmu: &mut Mmu) {
         let addr_low = mmu.read_byte(self.pc);
         self.pc = self.pc.wrapping_add(1);
         let addr_high = mmu.read_byte(self.pc);
@@ -501,23 +499,40 @@ impl Cpu {
         self.pc = addr;
         self.cycles = self.cycles.wrapping_add(16);
     }
-
     pub fn jp_hl(&mut self) {
         let addr = get_u16register!(self, self.h, self.l);
         self.pc = addr;
         self.cycles = self.cycles.wrapping_add(4);
     }
-
-    pub fn call_cond(&mut self, _condition: bool, mmu: &Mmu) {
-        todo!("Implement call_cond")
+    pub fn call_cond(&mut self, _condition: bool, mmu: &mut Mmu) {
+        if _condition {
+            self.call(mmu);
+        } else {
+            self.pc = self.pc.wrapping_add(2); // Salta l'indirizzo di 2 byte
+            self.cycles = self.cycles.wrapping_add(12); // Cicli totali se la condizione è falsa
+        }
     }
+    pub fn call(&mut self, mmu: &mut Mmu) {
+        let addr_low = mmu.read_byte(self.pc);
+        self.pc = self.pc.wrapping_add(1);
+        let addr_high = mmu.read_byte(self.pc);
+        self.pc = self.pc.wrapping_add(1);
+        let addr = (addr_high as u16) << 8 | (addr_low as u16);
 
-    pub fn call(&mut self, mmu: &Mmu) {
-        todo!("Implement call")
+        // Push the current PC onto the stack
+        let pc_high = (self.pc >> 8) as u8;
+        let pc_low = (self.pc & 0xFF) as u8;
+        self.push_r16(pc_high, pc_low, mmu);
+
+        // Jump to the target address
+        self.pc = addr;
+        self.cycles = self.cycles.wrapping_add(8);
     }
-
-    pub fn rst(&mut self, _target: u16, mmu: &Mmu) {
-        todo!("Implement rst")
+    pub fn rst(&mut self, target_addr: u16, mmu: &mut Mmu) {
+        let pc_high = (self.pc >> 8) as u8;
+        let pc_low = (self.pc & 0xFF) as u8;
+        self.push_r16(pc_high, pc_low, mmu);
+        self.pc = target_addr;
     }
 
     pub fn add_a_imm8(&mut self) {
