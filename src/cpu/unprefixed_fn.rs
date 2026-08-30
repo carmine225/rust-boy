@@ -535,36 +535,82 @@ impl Cpu {
         self.pc = target_addr;
     }
 
-    pub fn add_a_imm8(&mut self) {
-        todo!("Implement add_a_imm8")
+    pub fn add_a_imm8(&mut self, mmu: &mut Mmu) {
+        let value = mmu.read_byte(self.pc);
+        self.alu_add(value);
+        self.pc = self.pc.wrapping_add(1);
+        self.cycles = self.cycles.wrapping_add(4);
     }
 
-    pub fn adc_a_imm8(&mut self) {
-        todo!("Implement adc_a_imm8")
+    pub fn adc_a_imm8(&mut self, mmu: &mut Mmu) {
+        let value = mmu.read_byte(self.pc);
+        self.alu_adc(value);
+        self.pc = self.pc.wrapping_add(1);
+        self.cycles = self.cycles.wrapping_add(4);
     }
 
-    pub fn sub_a_imm8(&mut self) {
-        todo!("Implement sub_a_imm8")
+    pub fn sub_a_imm8(&mut self, mmu: &mut Mmu) {
+        let value = mmu.read_byte(self.pc);
+        self.alu_sub(value);
+        self.pc = self.pc.wrapping_add(1);
+        self.cycles = self.cycles.wrapping_add(4);
     }
 
-    pub fn sbc_a_imm8(&mut self) {
-        todo!("Implement sbc_a_imm8")
+    pub fn sbc_a_imm8(&mut self, mmu: &mut Mmu) {
+        let value = mmu.read_byte(self.pc);
+        self.alu_sbc(value);
+        self.pc = self.pc.wrapping_add(1);
+        self.cycles = self.cycles.wrapping_add(4);
     }
 
-    pub fn and_a_imm8(&mut self) {
-        todo!("Implement and_a_imm8")
+    pub fn add_sp_e8(&mut self, mmu: &mut Mmu) {
+        let raw_offset = mmu.read_byte(self.pc);
+        self.pc = self.pc.wrapping_add(1);
+
+        let offset = raw_offset as i8 as i32;
+        let sp = self.sp as i32;
+        let result = sp.wrapping_add(offset);
+
+        // I flag Z ed N sono sempre false
+        self.set_flag_z(false);
+        self.set_flag_n(false);
+
+        // H e C si calcolano sui primi 4 e 8 bit dell'operazione a 8-bit (raw_offset)
+        let sp_low = self.sp as u32;
+        let byte_val = raw_offset as u32;
+        self.set_flag_h(((sp_low & 0x0F) + (byte_val & 0x0F)) > 0x0F);
+        self.set_flag_c(((sp_low & 0xFF) + (byte_val & 0xFF)) > 0xFF);
+
+        self.sp = result as u16;
+        self.cycles = self.cycles.wrapping_add(16);
     }
 
-    pub fn xor_a_imm8(&mut self) {
-        todo!("Implement xor_a_imm8")
+    pub fn and_a_imm8(&mut self, mmu: &mut Mmu) {
+        let value = mmu.read_byte(self.pc);
+        self.alu_and(value);
+        self.pc = self.pc.wrapping_add(1);
+        self.cycles = self.cycles.wrapping_add(4);
     }
 
-    pub fn or_a_imm8(&mut self) {
-        todo!("Implement or_a_imm8")
+    pub fn xor_a_imm8(&mut self, mmu: &mut Mmu) {
+        let value = mmu.read_byte(self.pc);
+        self.alu_xor(value);
+        self.pc = self.pc.wrapping_add(1);
+        self.cycles = self.cycles.wrapping_add(4);
     }
 
-    pub fn cp_a_imm8(&mut self) {
-        todo!("Implement cp_a_imm8")
+    pub fn or_a_imm8(&mut self, mmu: &mut Mmu) {
+        let value = mmu.read_byte(self.pc);
+        self.alu_or(value);
+        self.pc = self.pc.wrapping_add(1);
+        self.cycles = self.cycles.wrapping_add(4);
+    }
+
+    pub fn cp_a_imm8(&mut self, mmu: &mut Mmu) {
+        let value = mmu.read_byte(self.pc);
+        self.alu_cp(value);
+        self.pc = self.pc.wrapping_add(1);
+        self.cycles = self.cycles.wrapping_add(4);
     }
 
     pub fn ldh_mem8_a(&mut self) {
@@ -589,10 +635,6 @@ impl Cpu {
 
     pub fn ld_a_mem16(&mut self) {
         todo!("Implement ld_a_mem16")
-    }
-
-    pub fn add_sp_e8(&mut self) {
-        todo!("Implement add_sp_e8")
     }
 
     pub fn ld_hl_sp_e8(&mut self) {

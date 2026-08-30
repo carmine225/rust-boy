@@ -446,14 +446,14 @@ impl Cpu {
             // ==========================================
             // OPERAZIONI ALU IMMEDIATE (Valori a 8 bit)
             // ==========================================
-            0xC6 => self.add_a_imm8(),
-            0xCE => self.adc_a_imm8(),
-            0xD6 => self.sub_a_imm8(),
-            0xDE => self.sbc_a_imm8(),
-            0xE6 => self.and_a_imm8(),
-            0xEE => self.xor_a_imm8(),
-            0xF6 => self.or_a_imm8(),
-            0xFE => self.cp_a_imm8(),
+            0xC6 => self.add_a_imm8(mmu),
+            0xCE => self.adc_a_imm8(mmu),
+            0xD6 => self.sub_a_imm8(mmu),
+            0xDE => self.sbc_a_imm8(mmu),
+            0xE6 => self.and_a_imm8(mmu),
+            0xEE => self.xor_a_imm8(mmu),
+            0xF6 => self.or_a_imm8(mmu),
+            0xFE => self.cp_a_imm8(mmu),
 
             // ==========================================
             // CARICAMENTI SPECIALI / RAM ALTA (LDH)
@@ -466,7 +466,7 @@ impl Cpu {
             0xFA => self.ld_a_mem16(), // LD A, (n16)
 
             // Manipolazioni SP
-            0xE8 => self.add_sp_e8(),
+            0xE8 => self.add_sp_e8(mmu),
             0xF8 => self.ld_hl_sp_e8(),
             0xF9 => self.ld_sp_hl(),
 
