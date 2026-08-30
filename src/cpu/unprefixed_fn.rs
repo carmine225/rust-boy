@@ -646,11 +646,13 @@ impl Cpu {
     }
 
     pub fn di(&mut self) {
-        todo!("Implement di")
+        self.ime = false;
+        self.cycles = self.cycles.wrapping_add(4);
     }
 
     pub fn ei(&mut self) {
-        todo!("Implement ei")
+        self.ime = true;
+        self.cycles = self.cycles.wrapping_add(4);
     }
     pub fn cb(&mut self, mmu: &mut Mmu) {
         let opcode = mmu.read_byte(self.pc);
