@@ -1,3 +1,20 @@
+//! Central Processing Unit (CPU) del Game Boy.
+//!
+//! Questo modulo implementa l'emulazione della CPU Game Boy basata su Zilog Z80.
+//! Include:
+//! - Struttura della CPU con 8 registri a 8-bit e 2 registri speciali (PC, SP)
+//! - Implementazione di tutte le istruzioni non-prefissate (unprefixed)
+//! - Implementazione di tutte le istruzioni prefissate con 0xCB (prefixed)
+//! - Gestione dei flag (Z, N, H, C)
+//! - Gestione degli interrupt e dello stato di halt/stop
+//!
+//! # Uso
+//!
+//! Per eseguire un'istruzione:
+//! ```ignore
+//! cpu.step(&mut mmu);
+//! ```
+
 // central processing unit
 
 use crate::get_u16register;
@@ -7,6 +24,10 @@ mod flag_helper;
 mod prefixed_fn;
 mod unprefixed_fn;
 
+/// Struttura della CPU Game Boy (Zilog Z80).
+///
+/// Contiene tutti i registri (A, B, C, D, E, H, L, F) e i registri speciali (PC, SP).
+/// Gestisce il contatore di cicli, lo stato di halt/stop e gli interrupt.
 pub struct Cpu {
     a: u8, // Accumulator
     f: u8, // Flags
@@ -27,6 +48,14 @@ pub struct Cpu {
     interrupt_flag: u8,
 }
 impl Cpu {
+    /// Crea una nuova CPU inizializzata.
+    ///
+    /// Inizializza tutti i registri a 0, tranne:
+    /// - SP (Stack Pointer): 0xFFFE (fine della RAM)
+    /// - PC (Program Counter): 0x0100 (inizio della ROM)
+    ///
+    /// # Returns
+    /// Una nuova istanza di CPU.
     pub fn new() -> Self {
         Cpu {
             a: 0,
@@ -49,6 +78,13 @@ impl Cpu {
         }
     }
 
+    /// Esegue un ciclo della CPU.
+    ///
+    /// Legge un opcode dalla memoria all'indirizzo PC, lo decodifica e lo esegue.
+    /// Incrementa il contatore di cicli in base all'istruzione eseguita.
+    ///
+    /// # Arguments
+    /// * `mmu` - Riferimento mutabile alla Memory Management Unit per accedere alla memoria.
     pub fn step(&mut self, mmu: &mut Mmu) {
         let opcode = mmu.read_byte(self.pc);
         self.pc = self.pc.wrapping_add(1);
@@ -458,16 +494,16 @@ impl Cpu {
             // ==========================================
             // CARICAMENTI SPECIALI / RAM ALTA (LDH)
             // ==========================================
-            0xE0 => self.ldh_mem8_a(), // LDH (n8), A
-            0xF0 => self.ldh_a_mem8(), // LDH A, (n8)
-            0xE2 => self.ld_mem_c_a(), // LD (C), A
-            0xF2 => self.ld_a_mem_c(), // LD A, (C)
-            0xEA => self.ld_mem16_a(), // LD (n16), A
-            0xFA => self.ld_a_mem16(), // LD A, (n16)
+            0xE0 => self.ldh_mem8_a(mmu), // LDH (n8), A
+            0xF0 => self.ldh_a_mem8(mmu), // LDH A, (n8)
+            0xE2 => self.ld_mem_c_a(mmu), // LD (C), A
+            0xF2 => self.ld_a_mem_c(mmu), // LD A, (C)
+            0xEA => self.ld_mem16_a(mmu), // LD (n16), A
+            0xFA => self.ld_a_mem16(mmu), // LD A, (n16)
 
             // Manipolazioni SP
             0xE8 => self.add_sp_e8(mmu),
-            0xF8 => self.ld_hl_sp_e8(),
+            0xF8 => self.ld_hl_sp_e8(mmu),
             0xF9 => self.ld_sp_hl(),
 
             // Interrupts
@@ -483,6 +519,15 @@ impl Cpu {
         }
     }
 
+    /// Dispatcher per le istruzioni prefissate con 0xCB.
+    ///
+    /// Legge l'opcode prefissato e lo decodifica, eseguendo l'istruzione corrispondente.
+    /// Le istruzioni prefissate includono rotazioni, shift, bit operations, e manipolazioni
+    /// di nibble. Utilizza il registro A, B, C, D, E, H, L o memoria (HL) come operandi.
+    ///
+    /// # Arguments
+    /// * `cb_opcode` - Byte dell'opcode prefissato da eseguire
+    /// * `mmu` - Riferimento mutabile alla Memory Management Unit
     fn cb_prefixed(&mut self, cb_opcode: u8, mmu: &mut Mmu) {
         match cb_opcode {
             // 0x00..0x07: RLC
