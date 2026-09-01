@@ -17,6 +17,8 @@
 
 // central processing unit
 
+use log::{error, trace};
+
 use crate::get_u16register;
 use crate::mmu::Mmu;
 use crate::set_u16register;
@@ -52,7 +54,7 @@ impl Cpu {
     ///
     /// Inizializza tutti i registri a 0, tranne:
     /// - SP (Stack Pointer): 0xFFFE (fine della RAM)
-    /// - PC (Program Counter): 0x0100 (inizio della ROM)
+    /// - PC (Program Counter): 0x0000
     ///
     /// # Returns
     /// Una nuova istanza di CPU.
@@ -67,7 +69,7 @@ impl Cpu {
             h: 0,
             l: 0,
             sp: 0xFFFE, // Stack Pointer starts at the end of memory
-            pc: 0x0100, // Program Counter starts at the beginning of the cartridge
+            pc: 0x0000, // Program Counter starts at 0
             cycles: 0,
             stopped: false,
             halted: false, // indicates whether the CPU is halted (waiting for an interrupt)
@@ -514,9 +516,23 @@ impl Cpu {
             // PREFISSO SPECIALE 0xCB
             // ==========================================
             0xCB => self.cb(mmu),
-
-            _ => panic!("Opcode non valido o non implementato: {:#04X}", opcode),
+            _ => error!("Opcode non valido: {:#04X}", opcode),
         }
+        trace!(
+            "CPU State after executing opcode {:#04X}: A={:#04X}, F={:#04X}, B={:#04X}, C={:#04X}, D={:#04X}, E={:#04X}, H={:#04X}, L={:#04X}, SP={:#06X}, PC={:#06X}, Cycles={}",
+            opcode,
+            self.a,
+            self.f,
+            self.b,
+            self.c,
+            self.d,
+            self.e,
+            self.h,
+            self.l,
+            self.sp,
+            self.pc,
+            self.cycles
+        );
     }
 
     /// Dispatcher per le istruzioni prefissate con 0xCB.
