@@ -35,8 +35,11 @@ cargo build --release
 - ✅ CPU core architecture
 - ✅ unprefixed opcode set
 - ✅ prefixed opcode set
+- ✅ mmu memory
+- 🔄 banking module: mb1
+- 🔄 banking module: mb2 
 - ⏳ PPU graphics engine
-- 🔄 APU audio system
+- ⏳ APU audio system
 - ⏳ Full Game Boy compatibility
 - ⏳ UI and debugging tools
 - ⏳ Save state support
