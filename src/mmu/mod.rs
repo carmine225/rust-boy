@@ -12,8 +12,10 @@ pub struct Mmu {
     vram: [u8; 8192],
     oam: [u8; 160],
     current_rom_bank: u8,
+    mbc_type: u8,
     current_ram_bank: u8,
     ram_enabled: bool,
+    banking_mode: u8,
     card_rom: Vec<u8>,
     card_ram: Vec<u8>,
     game_path: PathBuf,
@@ -32,7 +34,9 @@ impl Mmu {
             vram: [0; 8192],
             oam: [0; 160],
             current_rom_bank: 1,
+            mbc_type: 0,
             current_ram_bank: 0,
+            banking_mode: 0,
             ram_enabled: false,
             card_rom: Vec::new(),
             card_ram: Vec::new(),
@@ -104,22 +108,11 @@ impl Mmu {
 
     pub fn write_byte(&mut self, address: u16, value: u8) {
         match address {
-            // Scrittura in ROM -> Inoltrata al gestore del modulo banking
-            0x0000..=0x7FFF => self.handle_mbc_write(address, value),
+            // Scrittura in ROM -> Inoltrata al gestore del modulo banking  || External RAM Cartuccia (0xA000 - 0xBFFF)
+            0x0000..=0x7FFF | 0xA000..=0xBFFF => self.handle_mbc_write(address, value),
 
             // VRAM
             0x8000..=0x9FFF => self.vram[(address - 0x8000) as usize] = value,
-
-            // External RAM Cartuccia (0xA000 - 0xBFFF)
-            0xA000..=0xBFFF => {
-                if self.ram_enabled && !self.card_ram.is_empty() {
-                    let offset =
-                        (self.current_ram_bank as usize * 0x2000) + (address - 0xA000) as usize;
-                    if offset < self.card_ram.len() {
-                        self.card_ram[offset] = value;
-                    }
-                }
-            }
 
             // WRAM
             0xC000..=0xDFFF => self.wram[(address - 0xC000) as usize] = value,
