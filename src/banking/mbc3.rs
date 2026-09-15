@@ -1,10 +1,11 @@
 use crate::banking::Banking;
-
+use crate::rtc::Rtc;
 pub struct Mbc3 {
     pub current_rom_bank: u8,
     ram_rtc_select: u8,
     latched_rtc: [u8; 5],
     latch_state: u8,
+    rct: Rtc,
 }
 impl Mbc3 {
     pub fn new() -> Self {
@@ -13,6 +14,7 @@ impl Mbc3 {
             ram_rtc_select: 0,
             latch_state: 0xFF,
             latched_rtc: [0; 5],
+            rct: Rtc::new(),
         }
     }
     pub fn _mbc3_read(&mut self, banking: &mut Banking, address: u16) -> u8 {
@@ -81,7 +83,7 @@ impl Mbc3 {
             0x6000..=0x7FFF => {
                 if self.latch_state == 0x00 && value == 0x01 {
                     // Chiama il modulo rtc per popolare i 5 byte dall'orario di sistema
-                    self.latched_rtc = banking.rtc.get_mbc3_registers();
+                    self.latched_rtc = self.rct.get_mbc3_registers();
                 }
                 self.latch_state = value;
             }

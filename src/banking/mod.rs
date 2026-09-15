@@ -1,4 +1,3 @@
-use crate::rtc::Rtc;
 mod huc1;
 mod huc3;
 mod m161;
@@ -56,7 +55,6 @@ pub struct Banking {
     pub card_rom: Vec<u8>,
     pub card_ram: Vec<u8>,
     pub ram_enabled: bool,
-    rtc: Rtc,
 }
 impl Banking {
     pub fn new() -> Self {
@@ -66,7 +64,6 @@ impl Banking {
             banking_mode: 0,
             card_rom: Vec::new(),
             card_ram: Vec::new(),
-            rtc: Rtc::new(),
             current_ram_bank: 0,
             ram_enabled: false,
         }
