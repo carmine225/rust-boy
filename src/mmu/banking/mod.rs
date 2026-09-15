@@ -1,6 +1,7 @@
 use crate::mmu::Mmu;
 mod huc1;
 mod huc3;
+mod m161;
 mod mbc1;
 mod mbc2;
 mod mbc3;
@@ -10,6 +11,7 @@ mod mbc7;
 mod mmm01;
 mod rom_only;
 mod tama5;
+mod wisdom_tree;
 
 impl Mmu {
     pub fn manager(&mut self, banking_mode: u8) {
@@ -38,9 +40,9 @@ impl Mmu {
             // Chip Speciali / Esotici
             0xFE => self._huc3(banking_mode),
             0xFF => self._huc1(banking_mode),
+            0xEE => self._m161(banking_mode),
             0xEA => self._tama5(banking_mode),
             0x0B..=0x0D => self._mmm01(banking_mode),
-
             _ => {}
         }
     }
@@ -88,6 +90,7 @@ impl Mmu {
             0xFE => self._huc3_write(address, value),
             0xFF => self._huc1_write(address, value),
             0xEA => self._tama5_write(address, value),
+            0xEE => self._m161_write(address, value),
             0x0B..=0x0D => self._mmm01_write(address, value),
 
             _ => {}

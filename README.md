@@ -37,7 +37,7 @@ cargo build --release
 - ✅ prefixed opcode set
 - ✅ mmu memory
 - ✅ banking module: mb1
-- ⏳ banking module: mb2 
+- ✅ banking module: mb2 
 - ⏳ banking module: mb3
 - ⏳ banking module: mb5 
 - ⏳ banking module: mb6
@@ -46,6 +46,8 @@ cargo build --release
 - ⏳ banking module: huc3 
 - ✅ banking module: rom only
 - ⏳ banking module: tama5
+- ⏳ banking module: m161
+- ⏳ banking module: wisdom tree
 - ⏳ banking module: mmm01
 - ⏳ PPU graphics engine
 - ⏳ APU audio system
