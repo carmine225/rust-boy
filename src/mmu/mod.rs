@@ -1,7 +1,10 @@
 use std::path::PathBuf;
+
+use crate::mmu::rtc::Rtc;
 mod banking;
 mod bios;
 mod game;
+mod rtc;
 mod save;
 
 pub struct Mmu {
@@ -22,6 +25,10 @@ pub struct Mmu {
     bios: Vec<u8>,
     bios_path: PathBuf,
     save_path: PathBuf,
+    rtc: Rtc,
+    ram_rtc_select: u8,
+    latched_rtc: [u8; 5],
+    latch_state: u8,
 }
 
 impl Mmu {
@@ -44,6 +51,10 @@ impl Mmu {
             bios: Vec::new(),
             bios_path: PathBuf::new(),
             save_path: PathBuf::new(),
+            rtc: Rtc::new(),
+            ram_rtc_select: 0,
+            latched_rtc: [0; 5],
+            latch_state: 0,
         }
     }
 
