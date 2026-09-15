@@ -1,6 +1,7 @@
-use crate::mmu::Mmu;
-
-impl Mmu {
+pub struct WisdomTree {
+    pub current_rom_bank: u8,
+}
+impl WisdomTree {
     pub fn _wisdom_tree(&mut self, value: u8) {
         todo!("wisdom tree mapper not implemented");
     }

@@ -1,6 +1,10 @@
-use crate::mmu::Mmu;
+pub struct Huc1 {
+    pub current_rom_bank: u8,
+    pub current_ram_bank: u8,
+    ram_enabled: bool,
+}
 
-impl Mmu {
+impl Huc1 {
     pub fn _huc1(&mut self, value: u8) {
         todo!("HUC1 mapper not implemented");
     }

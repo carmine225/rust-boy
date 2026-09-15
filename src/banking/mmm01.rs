@@ -1,6 +1,7 @@
-use crate::mmu::Mmu;
-
-impl Mmu {
+pub struct Mmm01 {
+    pub current_rom_bank: u8,
+}
+impl Mmm01 {
     pub fn _mmm01(&mut self, value: u8) {
         todo!("MMM01 mapper not implemented");
     }

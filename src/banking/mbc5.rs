@@ -1,6 +1,7 @@
-use crate::mmu::Mmu;
-
-impl Mmu {
+pub struct Mbc5 {
+    pub current_rom_bank: u8,
+}
+impl Mbc5 {
     pub fn _mbc5(&mut self, value: u8) {
         todo!("MBC5 mapper not implemented");
     }

@@ -1,18 +1,23 @@
-use crate::mmu::Mmu;
+use crate::banking::Banking;
 
-impl Mmu {
-    pub fn _mbc3(&mut self, value: u8) {
-        self.mbc_type = value;
-        self.current_rom_bank = 1;
-        self.current_ram_bank = 0;
-        self.ram_rtc_select = 0;
-        self.ram_enabled = false;
-        self.latch_state = 0xFF;
-        self.latched_rtc = [0; 5];
+pub struct Mbc3 {
+    pub current_rom_bank: u8,
+    ram_rtc_select: u8,
+    latched_rtc: [u8; 5],
+    latch_state: u8,
+}
+impl Mbc3 {
+    pub fn new() -> Self {
+        Mbc3 {
+            current_rom_bank: 1,
+            ram_rtc_select: 0,
+            latch_state: 0xFF,
+            latched_rtc: [0; 5],
+        }
     }
-    pub fn _mbc3_read(&self, address: u16) -> u8 {
+    pub fn _mbc3_read(&mut self, banking: &mut Banking, address: u16) -> u8 {
         match address {
-            0x0000..=0x3FFF => self.card_rom[address as usize],
+            0x0000..=0x3FFF => banking.card_rom[address as usize],
 
             0x4000..=0x7FFF => {
                 let bank = if self.current_rom_bank == 0 {
@@ -21,11 +26,15 @@ impl Mmu {
                     self.current_rom_bank
                 };
                 let offset = ((bank as usize * 0x4000) + ((address - 0x4000) as usize)) as u8;
-                self.card_rom.get(offset as usize).copied().unwrap_or(0xFF)
+                banking
+                    .card_rom
+                    .get(offset as usize)
+                    .copied()
+                    .unwrap_or(0xFF)
             }
 
             0xA000..=0xBFFF => {
-                if !self.ram_enabled {
+                if !banking.ram_enabled {
                     return 0xFF;
                 }
 
@@ -34,7 +43,7 @@ impl Mmu {
                     0x00..=0x07 => {
                         let offset =
                             (self.ram_rtc_select as usize * 0x2000) + ((address - 0xA000) as usize);
-                        self.card_ram.get(offset).copied().unwrap_or(0xFF)
+                        banking.card_ram.get(offset).copied().unwrap_or(0xFF)
                     }
                     // Registro RTC latched
                     0x08..=0x0C => {
@@ -47,11 +56,11 @@ impl Mmu {
             _ => 0xFF,
         }
     }
-    pub fn _mbc3_write(&mut self, address: u16, value: u8) {
+    pub fn _mbc3_write(&mut self, banking: &mut Banking, address: u16, value: u8) {
         match address {
             // Abilitazione RAM e RTC
             0x0000..=0x1FFF => {
-                self.ram_enabled = (value & 0x0F) == 0x0A;
+                banking.ram_enabled = (value & 0x0F) == 0x0A;
             }
 
             // Selezione ROM Bank (7 bit)
@@ -72,14 +81,14 @@ impl Mmu {
             0x6000..=0x7FFF => {
                 if self.latch_state == 0x00 && value == 0x01 {
                     // Chiama il modulo rtc per popolare i 5 byte dall'orario di sistema
-                    self.latched_rtc = self.rtc.get_mbc3_registers();
+                    self.latched_rtc = banking.rtc.get_mbc3_registers();
                 }
                 self.latch_state = value;
             }
 
             // Scrittura RAM o Registri RTC
             0xA000..=0xBFFF => {
-                if !self.ram_enabled {
+                if !banking.ram_enabled {
                     return;
                 }
 
@@ -87,8 +96,8 @@ impl Mmu {
                     0x00..=0x07 => {
                         let offset =
                             (self.ram_rtc_select as usize * 0x2000) + ((address - 0xA000) as usize);
-                        if offset < self.card_ram.len() {
-                            self.card_ram[offset] = value;
+                        if offset < banking.card_ram.len() {
+                            banking.card_ram[offset] = value;
                         }
                     }
                     0x08..=0x0C => {

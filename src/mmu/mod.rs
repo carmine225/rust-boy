@@ -1,10 +1,7 @@
+use crate::banking::Banking;
 use std::path::PathBuf;
-
-use crate::mmu::rtc::Rtc;
-mod banking;
 mod bios;
 mod game;
-mod rtc;
 mod save;
 
 pub struct Mmu {
@@ -14,21 +11,11 @@ pub struct Mmu {
     ie_register: u8,
     vram: [u8; 8192],
     oam: [u8; 160],
-    current_rom_bank: u8,
-    mbc_type: u8,
-    current_ram_bank: u8,
-    ram_enabled: bool,
-    banking_mode: u8,
-    card_rom: Vec<u8>,
-    card_ram: Vec<u8>,
+    banking: Banking,
     game_path: PathBuf,
     bios: Vec<u8>,
     bios_path: PathBuf,
     save_path: PathBuf,
-    rtc: Rtc,
-    ram_rtc_select: u8,
-    latched_rtc: [u8; 5],
-    latch_state: u8,
 }
 
 impl Mmu {
@@ -40,31 +27,21 @@ impl Mmu {
             ie_register: 0,
             vram: [0; 8192],
             oam: [0; 160],
-            current_rom_bank: 1,
-            mbc_type: 0,
-            current_ram_bank: 0,
-            banking_mode: 0,
-            ram_enabled: false,
-            card_rom: Vec::new(),
-            card_ram: Vec::new(),
+            banking: Banking::new(),
             game_path: PathBuf::new(),
             bios: Vec::new(),
             bios_path: PathBuf::new(),
             save_path: PathBuf::new(),
-            rtc: Rtc::new(),
-            ram_rtc_select: 0,
-            latched_rtc: [0; 5],
-            latch_state: 0,
         }
     }
 
-    pub fn read_byte(&self, address: u16) -> u8 {
+    pub fn read_byte(&self, banking: &mut Banking, address: u16) -> u8 {
         match address {
             // ROM Bank 00 (0x0000 - 0x3FFF) -> Primi 16 KiB fissi
             0x0000..=0x3FFF => {
                 let idx = address as usize;
-                if idx < self.card_rom.len() {
-                    self.card_rom[idx]
+                if idx < banking.card_rom.len() {
+                    banking.card_rom[idx]
                 } else {
                     0xFF
                 }
@@ -72,10 +49,10 @@ impl Mmu {
 
             // ROM Bank 01..N (0x4000 - 0x7FFF) -> Calcolato col banco attivo
             0x4000..=0x7FFF => {
-                let offset = ((self.current_rom_bank as usize * 0x4000)
-                    + ((address - 0x4000) as usize)) as usize;
-                if offset < self.card_rom.len() {
-                    self.card_rom[offset]
+                let bank = banking.mapper.current_rom_bank();
+                let offset = ((bank as usize * 0x4000) + ((address - 0x4000) as usize)) as usize;
+                if offset < banking.card_rom.len() {
+                    banking.card_rom[offset]
                 } else {
                     0xFF
                 }
@@ -86,13 +63,13 @@ impl Mmu {
 
             // External RAM Cartuccia (0xA000 - 0xBFFF) -> Richiede RAM abilitata
             0xA000..=0xBFFF => {
-                if !self.ram_enabled || self.card_ram.is_empty() {
+                if !banking.ram_enabled || banking.card_ram.is_empty() {
                     return 0xFF;
                 }
                 let offset =
-                    (self.current_ram_bank as usize * 0x2000) + (address - 0xA000) as usize;
-                if offset < self.card_ram.len() {
-                    self.card_ram[offset]
+                    (banking.current_ram_bank as usize * 0x2000) + (address - 0xA000) as usize;
+                if offset < banking.card_ram.len() {
+                    banking.card_ram[offset]
                 } else {
                     0xFF
                 }
@@ -117,10 +94,10 @@ impl Mmu {
         }
     }
 
-    pub fn write_byte(&mut self, address: u16, value: u8) {
+    pub fn write_byte(&mut self, banking: &mut Banking, address: u16, value: u8) {
         match address {
             // Scrittura in ROM -> Inoltrata al gestore del modulo banking  || External RAM Cartuccia (0xA000 - 0xBFFF)
-            0x0000..=0x7FFF | 0xA000..=0xBFFF => self.handle_mbc_write(address, value),
+            0x0000..=0x7FFF | 0xA000..=0xBFFF => banking.handle_mbc_write(address, value),
 
             // VRAM
             0x8000..=0x9FFF => self.vram[(address - 0x8000) as usize] = value,

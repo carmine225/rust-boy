@@ -1,7 +1,8 @@
 //mapper for specific games
-use crate::mmu::Mmu;
-
-impl Mmu {
+pub struct Tama5 {
+    pub current_rom_bank: u8,
+}
+impl Tama5 {
     pub fn _tama5(&mut self, value: u8) {
         todo!("TAMA5 mapper not implemented");
     }
