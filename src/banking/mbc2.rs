@@ -5,7 +5,7 @@ pub struct Mbc2 {
     ram_enabled: bool,
 }
 impl Mbc2 {
-    pub fn new(value: u8) -> Self {
+    pub fn new() -> Self {
         Mbc2 {
             current_rom_bank: 1,
             current_ram_bank: 0,

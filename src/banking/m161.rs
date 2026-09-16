@@ -4,8 +4,12 @@ pub struct M161 {
     ram_enabled: bool,
 }
 impl M161 {
-    pub fn new(&mut self, value: u8) {
-        todo!("m161 mapper not implemented");
+    pub fn new() -> Self {
+        M161 {
+            current_rom_bank: 1,
+            current_ram_bank: 0,
+            ram_enabled: false,
+        }
     }
     pub fn read(&mut self, address: u16) -> u8 {
         todo!("m161 read")

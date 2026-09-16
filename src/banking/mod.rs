@@ -1,3 +1,5 @@
+use crate::banking::{huc1::Huc1, rom_only::RomOnly};
+
 mod huc1;
 mod huc3;
 mod m161;
@@ -45,6 +47,40 @@ impl Mapper {
             Mapper::WisdomTree(m) => m.current_rom_bank as u8,
         }
     }
+    pub fn current_read(&mut self, banking: &mut Banking, address: u16) -> u8 {
+        match self {
+            Mapper::Huc1(m) => m.read(address),
+            Mapper::Huc3(m) => m.read(address),
+            Mapper::M161(m) => m.read(address),
+            Mapper::Mbc1(m) => m.read(banking, address),
+            Mapper::Mbc2(m) => m.read(banking, address),
+            Mapper::Mbc3(m) => m.read(banking, address),
+            Mapper::Mbc5(m) => m.read(address),
+            Mapper::Mbc6(m) => m.read(address),
+            Mapper::Mbc7(m) => m.read(address),
+            Mapper::Mmm01(m) => m.read(address),
+            Mapper::Tama5(m) => m.read(address),
+            Mapper::RomOnly(_) => RomOnly::read(banking, address),
+            Mapper::WisdomTree(m) => m.read(address),
+        }
+    }
+    pub fn current_write(&mut self, banking: &mut Banking, address: u16, value: u8) {
+        match self {
+            Mapper::Huc1(m) => m.write(address, value),
+            Mapper::Huc3(m) => m.write(address, value),
+            Mapper::M161(m) => m.write(address, value),
+            Mapper::Mbc1(m) => m.write(banking, address, value),
+            Mapper::Mbc2(m) => m.write(banking, address, value),
+            Mapper::Mbc3(m) => m.write(banking, address, value),
+            Mapper::Mbc5(m) => m.write(address, value),
+            Mapper::Mbc6(m) => m.write(address, value),
+            Mapper::Mbc7(m) => m.write(address, value),
+            Mapper::Mmm01(m) => m.write(address, value),
+            Mapper::Tama5(m) => m.write(address, value),
+            Mapper::RomOnly(_) => RomOnly::write(banking, address, value),
+            Mapper::WisdomTree(m) => m.write(address, value),
+        }
+    }
 }
 
 pub struct Banking {
@@ -86,7 +122,7 @@ impl Banking {
             // MBC2
             0x05 | 0x06 => {
                 self.card_ram = vec![0; 512];
-                self.mapper = Mapper::Mbc2(mbc2::Mbc2::new(banking_mode))
+                self.mapper = Mapper::Mbc2(mbc2::Mbc2::new())
             }
 
             // MBC3
@@ -97,23 +133,38 @@ impl Banking {
             }
 
             // MBC5
-            0x19..=0x1E => {}
+            0x19..=0x1E => self.mapper = Mapper::Mbc5(mbc5::Mbc5::new()),
 
             // MBC6
-            0x20 => {}
+            0x20 => self.mapper = Mapper::Mbc6(mbc6::Mbc6::new()),
 
             // MBC7
-            0x22 => {}
+            0x22 => self.mapper = Mapper::Mbc7(mbc7::Mbc7::new()),
 
             // Chip Speciali / Esotici
-            0xFE => {}
-            0xFF => {}
-            0xEE => {}
-            0xEA => {}
-            0x0B..=0x0D => {}
+            0xFE => self.mapper = Mapper::Huc3(huc3::Huc3::new()),
+            0xFF => self.mapper = Mapper::Huc1(huc1::Huc1::new()),
+            0xEE => self.mapper = Mapper::M161(m161::M161::new()),
+            0xEA => self.mapper = Mapper::Tama5(tama5::Tama5::new()),
+            0x0B..=0x0D => self.mapper = Mapper::Mmm01(mmm01::Mmm01::new()),
             _ => {}
         }
     }
+
+    pub fn write(&mut self, address: u16, value: u8) {
+        let replacement = Banking::new().mapper;
+        let mut mapper = std::mem::replace(&mut self.mapper, replacement);
+        mapper.current_write(self, address, value);
+        self.mapper = mapper;
+    }
+    pub fn read(&mut self, address: u16) -> u8 {
+        let replacement = Banking::new().mapper;
+        let mut mapper = std::mem::replace(&mut self.mapper, replacement);
+        let readed = mapper.current_read(self, address);
+        self.mapper = mapper;
+        readed
+    }
+
     pub fn ram_manager(&mut self, ram_size_code: u8) {
         // Il banco attivo parte sempre da 0 all'inizializzazione
         self.current_ram_bank = 0;
@@ -130,46 +181,5 @@ impl Banking {
             self.ram_enabled = true;
         }
         self.card_ram = vec![0; size_in_bytes];
-    }
-    pub fn handle_mbc_write(&mut self, address: u16, value: u8) {
-        match self.mbc_type {
-            // ROM ONLY
-            0x00 | 0x08 | 0x09 => {}
-
-            // MBC1
-            0x01..=0x03 => {}
-
-            // MBC2
-            0x05 | 0x06 => {}
-
-            // MBC3
-            0x0F..=0x13 => {}
-
-            // MBC5
-            0x19..=0x1E => {}
-
-            // MBC6
-            0x20 => {}
-
-            // MBC7
-            0x22 => {}
-
-            //huc3
-            0xFE => {}
-
-            //huc1
-            0xFF => {}
-
-            //tama5
-            0xEA => {}
-
-            //m161
-            0xEE => {}
-
-            //mmm01
-            0x0B..=0x0D => {}
-
-            _ => {}
-        }
     }
 }

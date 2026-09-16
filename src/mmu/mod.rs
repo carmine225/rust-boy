@@ -35,7 +35,7 @@ impl Mmu {
         }
     }
 
-    pub fn read_byte(&self, address: u16) -> u8 {
+    pub fn read_byte(&mut self, address: u16) -> u8 {
         match address {
             // ROM Bank 00 (0x0000 - 0x3FFF) -> Primi 16 KiB fissi
             0x0000..=0x3FFF => {
@@ -47,33 +47,11 @@ impl Mmu {
                 }
             }
 
-            // ROM Bank 01..N (0x4000 - 0x7FFF) -> Calcolato col banco attivo
-            0x4000..=0x7FFF => {
-                let bank = self.banking.mapper.current_rom_bank();
-                let offset = ((bank as usize * 0x4000) + ((address - 0x4000) as usize)) as usize;
-                if offset < self.banking.card_rom.len() {
-                    self.banking.card_rom[offset]
-                } else {
-                    0xFF
-                }
-            }
+            // ROM Bank 01..N (0x4000 - 0x7FFF) -> Calcolato col banco attivo External RAM Cartuccia (0xA000 - 0xBFFF) -> Richiede RAM abilitata
+            0x4000..=0x7FFF | 0xA000..=0xBFFF => self.banking.read(address),
 
             // VRAM (0x8000 - 0x9FFF)
             0x8000..=0x9FFF => self.vram[(address - 0x8000) as usize],
-
-            // External RAM Cartuccia (0xA000 - 0xBFFF) -> Richiede RAM abilitata
-            0xA000..=0xBFFF => {
-                if !self.banking.ram_enabled || self.banking.card_ram.is_empty() {
-                    return 0xFF;
-                }
-                let offset =
-                    (self.banking.current_ram_bank as usize * 0x2000) + (address - 0xA000) as usize;
-                if offset < self.banking.card_ram.len() {
-                    self.banking.card_ram[offset]
-                } else {
-                    0xFF
-                }
-            }
 
             // WRAM (0xC000 - 0xDFFF)
             0xC000..=0xDFFF => self.wram[(address - 0xC000) as usize],
@@ -97,7 +75,7 @@ impl Mmu {
     pub fn write_byte(&mut self, address: u16, value: u8) {
         match address {
             // Scrittura in ROM -> Inoltrata al gestore del modulo banking  || External RAM Cartuccia (0xA000 - 0xBFFF)
-            0x0000..=0x7FFF | 0xA000..=0xBFFF => self.banking.handle_mbc_write(address, value),
+            0x0000..=0x7FFF | 0xA000..=0xBFFF => self.banking.write(address, value),
 
             // VRAM
             0x8000..=0x9FFF => self.vram[(address - 0x8000) as usize] = value,

@@ -268,7 +268,7 @@ impl Cpu {
     ///
     /// Verifica se il bit b è impostato nel valore in memoria.
     /// Azzera N, imposta H. Modifica Z in base al bit testato.
-    pub fn bit_b_hl_mem(&mut self, bit: u8, mmu: &Mmu) {
+    pub fn bit_b_hl_mem(&mut self, bit: u8, mmu: &mut Mmu) {
         let hl = get_u16register!(self, self.h, self.l);
         let val = mmu.read_byte(hl);
         self.bit_b_r8(bit, val);

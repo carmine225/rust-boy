@@ -17,7 +17,7 @@ impl Mbc3 {
             rct: Rtc::new(),
         }
     }
-    pub fn _mbc3_read(&mut self, banking: &mut Banking, address: u16) -> u8 {
+    pub fn read(&mut self, banking: &mut Banking, address: u16) -> u8 {
         match address {
             0x0000..=0x3FFF => banking.card_rom[address as usize],
 
@@ -58,7 +58,7 @@ impl Mbc3 {
             _ => 0xFF,
         }
     }
-    pub fn _mbc3_write(&mut self, banking: &mut Banking, address: u16, value: u8) {
+    pub fn write(&mut self, banking: &mut Banking, address: u16, value: u8) {
         match address {
             // Abilitazione RAM e RTC
             0x0000..=0x1FFF => {

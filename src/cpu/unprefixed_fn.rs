@@ -540,7 +540,7 @@ impl Cpu {
     /// Se la condizione è vera, salta di un offset relativo (8-bit con segno).
     /// Se la condizione è falsa, continua l'esecuzione sequenziale.
     /// Incrementa il PC di 1 per leggere l'offset.
-    pub fn jr_cond(&mut self, condition: bool, mmu: &Mmu) {
+    pub fn jr_cond(&mut self, condition: bool, mmu: &mut Mmu) {
         let offset_raw = mmu.read_byte(self.pc);
         self.pc = self.pc.wrapping_add(1);
 
