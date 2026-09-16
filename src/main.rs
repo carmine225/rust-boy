@@ -16,5 +16,5 @@ fn main() {
     log::init_logger(&path_log);
     mmu.load_bios(PathBuf::from("bios/bios.gb"));
     mmu.load_game(&mut banking, PathBuf::from("games"));
-    cpu.step(&mut banking, &mut mmu); // Passa banking, MMU e PC iniziale
+    cpu.step(&mut mmu); // Passa banking, MMU e PC iniziale
 }

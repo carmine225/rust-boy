@@ -35,13 +35,13 @@ impl Mmu {
         }
     }
 
-    pub fn read_byte(&self, banking: &mut Banking, address: u16) -> u8 {
+    pub fn read_byte(&self, address: u16) -> u8 {
         match address {
             // ROM Bank 00 (0x0000 - 0x3FFF) -> Primi 16 KiB fissi
             0x0000..=0x3FFF => {
                 let idx = address as usize;
-                if idx < banking.card_rom.len() {
-                    banking.card_rom[idx]
+                if idx < self.banking.card_rom.len() {
+                    self.banking.card_rom[idx]
                 } else {
                     0xFF
                 }
@@ -49,10 +49,10 @@ impl Mmu {
 
             // ROM Bank 01..N (0x4000 - 0x7FFF) -> Calcolato col banco attivo
             0x4000..=0x7FFF => {
-                let bank = banking.mapper.current_rom_bank();
+                let bank = self.banking.mapper.current_rom_bank();
                 let offset = ((bank as usize * 0x4000) + ((address - 0x4000) as usize)) as usize;
-                if offset < banking.card_rom.len() {
-                    banking.card_rom[offset]
+                if offset < self.banking.card_rom.len() {
+                    self.banking.card_rom[offset]
                 } else {
                     0xFF
                 }
@@ -63,13 +63,13 @@ impl Mmu {
 
             // External RAM Cartuccia (0xA000 - 0xBFFF) -> Richiede RAM abilitata
             0xA000..=0xBFFF => {
-                if !banking.ram_enabled || banking.card_ram.is_empty() {
+                if !self.banking.ram_enabled || self.banking.card_ram.is_empty() {
                     return 0xFF;
                 }
                 let offset =
-                    (banking.current_ram_bank as usize * 0x2000) + (address - 0xA000) as usize;
-                if offset < banking.card_ram.len() {
-                    banking.card_ram[offset]
+                    (self.banking.current_ram_bank as usize * 0x2000) + (address - 0xA000) as usize;
+                if offset < self.banking.card_ram.len() {
+                    self.banking.card_ram[offset]
                 } else {
                     0xFF
                 }
@@ -94,10 +94,10 @@ impl Mmu {
         }
     }
 
-    pub fn write_byte(&mut self, banking: &mut Banking, address: u16, value: u8) {
+    pub fn write_byte(&mut self, address: u16, value: u8) {
         match address {
             // Scrittura in ROM -> Inoltrata al gestore del modulo banking  || External RAM Cartuccia (0xA000 - 0xBFFF)
-            0x0000..=0x7FFF | 0xA000..=0xBFFF => banking.handle_mbc_write(address, value),
+            0x0000..=0x7FFF | 0xA000..=0xBFFF => self.banking.handle_mbc_write(address, value),
 
             // VRAM
             0x8000..=0x9FFF => self.vram[(address - 0x8000) as usize] = value,

@@ -4,7 +4,6 @@
 //! che non iniziano con il prefisso 0xCB. Sono incluse operazioni di controllo,
 //! aritmetiche, logiche, di memoria e di gestione del flusso di controllo.
 
-use crate::banking::Banking;
 use crate::cpu::Cpu;
 use crate::get_u16register;
 use crate::mmu::Mmu;
@@ -176,11 +175,11 @@ impl Cpu {
     ///
     /// Decrementa di 1 il valore puntato da HL.
     /// Modifica i flag Z, N, e H. Il flag C non viene modificato.
-    pub fn dec_hl_mem(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
+    pub fn dec_hl_mem(&mut self, mmu: &mut Mmu) {
         let hl = get_u16register!(self, self.h, self.l);
-        let value = mmu.read_byte(banking, hl);
+        let value = mmu.read_byte(hl);
         let result = value.wrapping_sub(1);
-        mmu.write_byte(banking, hl, result);
+        mmu.write_byte(hl, result);
         self.set_flag_z(result == 0);
         self.set_flag_n(true);
         self.set_flag_h((value & 0x0F) == 0x00);
@@ -191,10 +190,10 @@ impl Cpu {
     ///
     /// Legge un byte immediato dal PC e lo scrive in memoria all'indirizzo HL.
     /// Incrementa il PC di 1.
-    pub fn ld_hl_mem_imm8(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
+    pub fn ld_hl_mem_imm8(&mut self, mmu: &mut Mmu) {
         let hl = get_u16register!(self, self.h, self.l);
-        let value = mmu.read_byte(banking, self.pc);
-        mmu.write_byte(banking, hl, value);
+        let value = mmu.read_byte(self.pc);
+        mmu.write_byte(hl, value);
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(12);
     }
@@ -203,11 +202,11 @@ impl Cpu {
     ///
     /// Incrementa di 1 il valore puntato da HL.
     /// Modifica i flag Z, N, e H. Il flag C non viene modificato.
-    pub fn inc_hl_mem(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
+    pub fn inc_hl_mem(&mut self, mmu: &mut Mmu) {
         let hl = get_u16register!(self, self.h, self.l);
-        let value = mmu.read_byte(banking, hl);
+        let value = mmu.read_byte(hl);
         let result = value.wrapping_add(1);
-        mmu.write_byte(banking, hl, result);
+        mmu.write_byte(hl, result);
         self.set_flag_z(result == 0);
         self.set_flag_n(false);
         self.set_flag_h((value & 0x0F) == 0x0F);
@@ -234,16 +233,16 @@ impl Cpu {
     /// LD (r16), A - Scrive A in memoria all'indirizzo r16
     ///
     /// Scrive il registro A in memoria all'indirizzo specificato da r16.
-    pub fn ld_mem_r16_a(&mut self, banking: &mut Banking, mmu: &mut Mmu, src: u16) {
-        mmu.write_byte(banking, src, self.a);
+    pub fn ld_mem_r16_a(&mut self, mmu: &mut Mmu, src: u16) {
+        mmu.write_byte(src, self.a);
         self.cycles = self.cycles.wrapping_add(8);
     }
 
     /// LD A, (r16) - Legge da memoria all'indirizzo r16 in A
     ///
     /// Legge un byte dalla memoria all'indirizzo r16 e lo carica in A.
-    pub fn ld_a_mem_r16(&mut self, banking: &mut Banking, mmu: &mut Mmu, src: u16) {
-        self.a = mmu.read_byte(banking, src);
+    pub fn ld_a_mem_r16(&mut self, mmu: &mut Mmu, src: u16) {
+        self.a = mmu.read_byte(src);
         self.cycles = self.cycles.wrapping_add(8);
     }
 
@@ -251,12 +250,12 @@ impl Cpu {
     ///
     /// Legge un indirizzo immediato a 16-bit dal PC e scrive SP in memoria
     /// a quell'indirizzo (byte basso e alto separatamente).
-    pub fn ld_mem16_sp(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
-        let low = mmu.read_byte(banking, self.pc) as u16;
-        let high = mmu.read_byte(banking, self.pc.wrapping_add(1)) as u16;
+    pub fn ld_mem16_sp(&mut self, mmu: &mut Mmu) {
+        let low = mmu.read_byte(self.pc) as u16;
+        let high = mmu.read_byte(self.pc.wrapping_add(1)) as u16;
         let addr = low | (high << 8);
-        mmu.write_byte(banking, addr, self.sp as u8);
-        mmu.write_byte(banking, addr.wrapping_add(1), (self.sp >> 8) as u8);
+        mmu.write_byte(addr, self.sp as u8);
+        mmu.write_byte(addr.wrapping_add(1), (self.sp >> 8) as u8);
         self.pc = self.pc.wrapping_add(2);
         self.cycles = self.cycles.wrapping_add(20);
     }
@@ -265,9 +264,9 @@ impl Cpu {
     ///
     /// Scrive il registro A all'indirizzo HL e poi incrementa HL di 1.
     /// Utile per copiare dati sequenziali in memoria.
-    pub fn ld_hl_inc_a(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
+    pub fn ld_hl_inc_a(&mut self, mmu: &mut Mmu) {
         let hl = get_u16register!(self, self.h, self.l);
-        mmu.write_byte(banking, hl, self.a);
+        mmu.write_byte(hl, self.a);
         let hl = hl.wrapping_add(1);
         self.h = (hl >> 8) as u8;
         self.l = (hl & 0xFF) as u8;
@@ -278,9 +277,9 @@ impl Cpu {
     ///
     /// Legge un byte dall'indirizzo HL in A e poi incrementa HL di 1.
     /// Utile per leggere dati sequenziali dalla memoria.
-    pub fn ld_a_hl_inc(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
+    pub fn ld_a_hl_inc(&mut self, mmu: &mut Mmu) {
         let hl = get_u16register!(self, self.h, self.l);
-        self.a = mmu.read_byte(banking, hl);
+        self.a = mmu.read_byte(hl);
         let hl = hl.wrapping_add(1);
         self.h = (hl >> 8) as u8;
         self.l = (hl & 0xFF) as u8;
@@ -290,9 +289,9 @@ impl Cpu {
     /// LD (HL-), A - Scrive A in memoria e decrementa HL
     ///
     /// Scrive il registro A all'indirizzo HL e poi decrementa HL di 1.
-    pub fn ld_hl_dec_a(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
+    pub fn ld_hl_dec_a(&mut self, mmu: &mut Mmu) {
         let hl = get_u16register!(self, self.h, self.l);
-        mmu.write_byte(banking, hl, self.a);
+        mmu.write_byte(hl, self.a);
         let hl = hl.wrapping_sub(1);
         self.h = (hl >> 8) as u8;
         self.l = (hl & 0xFF) as u8;
@@ -302,9 +301,9 @@ impl Cpu {
     /// LD A, (HL-) - Legge da memoria e decrementa HL
     ///
     /// Legge un byte dall'indirizzo HL in A e poi decrementa HL di 1.
-    pub fn ld_a_hl_dec(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
+    pub fn ld_a_hl_dec(&mut self, mmu: &mut Mmu) {
         let hl = get_u16register!(self, self.h, self.l);
-        self.a = mmu.read_byte(banking, hl);
+        self.a = mmu.read_byte(hl);
         let hl = hl.wrapping_sub(1);
         self.h = (hl >> 8) as u8;
         self.l = (hl & 0xFF) as u8;
@@ -314,18 +313,18 @@ impl Cpu {
     /// LD (HL), r8 - Scrive registro in memoria (HL)
     ///
     /// Scrive il valore del registro src all'indirizzo HL.
-    pub fn ld_mem_hl_r8(&mut self, banking: &mut Banking, mmu: &mut Mmu, src: u8) {
+    pub fn ld_mem_hl_r8(&mut self, mmu: &mut Mmu, src: u8) {
         let hl = get_u16register!(self, self.h, self.l);
-        mmu.write_byte(banking, hl, src);
+        mmu.write_byte(hl, src);
         self.cycles = self.cycles.wrapping_add(8); // Aggiorna il conteggio dei cicli in base all'operazione
     }
 
     /// LD r8, (HL) - Legge memoria (HL) in registro
     ///
     /// Legge un byte dall'indirizzo HL e lo restituisce.
-    pub fn ld_r8_mem_hl(&mut self, banking: &mut Banking, mmu: &mut Mmu) -> u8 {
+    pub fn ld_r8_mem_hl(&mut self, mmu: &mut Mmu) -> u8 {
         let hl = get_u16register!(self, self.h, self.l);
-        let data = mmu.read_byte(banking, hl);
+        let data = mmu.read_byte(hl);
         self.cycles = self.cycles.wrapping_add(8);
         data
     }
@@ -334,9 +333,9 @@ impl Cpu {
     ///
     /// Addiziona il valore in memoria (HL) ad A.
     /// Modifica i flag Z, N, H, e C.
-    pub fn alu_add_mem_hl(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
+    pub fn alu_add_mem_hl(&mut self, mmu: &mut Mmu) {
         let hl = get_u16register!(self, self.h, self.l);
-        let value = mmu.read_byte(banking, hl);
+        let value = mmu.read_byte(hl);
         let result = (self.a as u16) + (value as u16);
         let final_result = result as u8;
         self.set_flag_z(final_result == 0);
@@ -352,9 +351,9 @@ impl Cpu {
     ///
     /// Sottrae il valore in memoria (HL) da A.
     /// Modifica i flag Z, N, H, e C.
-    pub fn alu_sub_mem_hl(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
+    pub fn alu_sub_mem_hl(&mut self, mmu: &mut Mmu) {
         let hl = get_u16register!(self, self.h, self.l);
-        let value = mmu.read_byte(banking, hl);
+        let value = mmu.read_byte(hl);
         let final_result = self.a.wrapping_sub(value);
         self.set_flag_z(final_result == 0);
         self.set_flag_n(true);
@@ -370,9 +369,9 @@ impl Cpu {
     ///
     /// Confronta il registro A con il valore in memoria (HL) (sottrazione senza salvataggio).
     /// Modifica i flag Z, N, H, e C.
-    pub fn alu_cp_mem_hl(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
+    pub fn alu_cp_mem_hl(&mut self, mmu: &mut Mmu) {
         let hl = get_u16register!(self, self.h, self.l);
-        let value = mmu.read_byte(banking, hl);
+        let value = mmu.read_byte(hl);
         let result = (self.a as u16).wrapping_sub(value as u16);
         let final_result = result as u8;
         self.set_flag_z(final_result == 0);
@@ -387,9 +386,9 @@ impl Cpu {
     ///
     /// Addiziona il valore in memoria (HL) e il flag Carry ad A.
     /// Modifica i flag Z, N, H, e C.
-    pub fn alu_adc_mem_hl(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
+    pub fn alu_adc_mem_hl(&mut self, mmu: &mut Mmu) {
         let hl = get_u16register!(self, self.h, self.l);
-        let value = mmu.read_byte(banking, hl);
+        let value = mmu.read_byte(hl);
         let carry = if self.get_flag_c() { 1 } else { 0 };
         let final_result = self.a.wrapping_add(value).wrapping_add(carry);
         self.set_flag_z(final_result == 0);
@@ -406,9 +405,9 @@ impl Cpu {
     ///
     /// Sottrae il valore in memoria (HL) e il flag Carry da A.
     /// Modifica i flag Z, N, H, e C.
-    pub fn alu_sbc_mem_hl(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
+    pub fn alu_sbc_mem_hl(&mut self, mmu: &mut Mmu) {
         let hl_addr = get_u16register!(self, self.h, self.l);
-        let value = mmu.read_byte(banking, hl_addr);
+        let value = mmu.read_byte(hl_addr);
         let carry = if self.get_flag_c() { 1 } else { 0 };
         let a = self.a;
         let result = (a as i32) - (value as i32) - carry;
@@ -426,9 +425,9 @@ impl Cpu {
     ///
     /// Esegue AND logico tra A e il valore in memoria (HL).
     /// Imposta H=true, azz era N, H, C. Modifica Z.
-    pub fn alu_and_mem_hl(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
+    pub fn alu_and_mem_hl(&mut self, mmu: &mut Mmu) {
         let hl = get_u16register!(self, self.h, self.l);
-        let value = mmu.read_byte(banking, hl);
+        let value = mmu.read_byte(hl);
         self.a &= value;
         self.set_flag_z(self.a == 0);
         self.set_flag_n(false);
@@ -441,9 +440,9 @@ impl Cpu {
     ///
     /// Esegue XOR logico tra A e il valore in memoria (HL).
     /// Azzera i flag N, H, C. Modifica Z.
-    pub fn alu_xor_mem_hl(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
+    pub fn alu_xor_mem_hl(&mut self, mmu: &mut Mmu) {
         let hl = get_u16register!(self, self.h, self.l);
-        let value = mmu.read_byte(banking, hl);
+        let value = mmu.read_byte(hl);
         self.a ^= value;
         self.set_flag_z(self.a == 0);
         self.set_flag_n(false);
@@ -456,9 +455,9 @@ impl Cpu {
     ///
     /// Esegue OR logico tra A e il valore in memoria (HL).
     /// Azzera i flag N, H, C. Modifica Z.
-    pub fn alu_or_mem_hl(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
+    pub fn alu_or_mem_hl(&mut self, mmu: &mut Mmu) {
         let hl = get_u16register!(self, self.h, self.l);
-        let value = mmu.read_byte(banking, hl);
+        let value = mmu.read_byte(hl);
         self.a |= value;
         self.set_flag_z(self.a == 0);
         self.set_flag_n(false);
@@ -471,10 +470,10 @@ impl Cpu {
     ///
     /// Legge due byte dal PC (low, high) e restituisce il valore a 16-bit.
     /// Incrementa il PC di 2.
-    pub fn ld_r16_imm16(&mut self, banking: &mut Banking, mmu: &mut Mmu) -> u16 {
-        let value_low = mmu.read_byte(banking, self.pc);
+    pub fn ld_r16_imm16(&mut self, mmu: &mut Mmu) -> u16 {
+        let value_low = mmu.read_byte(self.pc);
         self.pc = self.pc.wrapping_add(1);
-        let value_high = mmu.read_byte(banking, self.pc);
+        let value_high = mmu.read_byte(self.pc);
         let final_value = (value_high as u16) << 8 | (value_low as u16);
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(12);
@@ -529,8 +528,8 @@ impl Cpu {
     ///
     /// Legge un byte dal PC e lo restituisce.
     /// Incrementa il PC di 1.
-    pub fn ld_r8_imm8(&mut self, banking: &mut Banking, mmu: &mut Mmu) -> u8 {
-        let value = mmu.read_byte(banking, self.pc);
+    pub fn ld_r8_imm8(&mut self, mmu: &mut Mmu) -> u8 {
+        let value = mmu.read_byte(self.pc);
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(8);
         value
@@ -541,8 +540,8 @@ impl Cpu {
     /// Se la condizione è vera, salta di un offset relativo (8-bit con segno).
     /// Se la condizione è falsa, continua l'esecuzione sequenziale.
     /// Incrementa il PC di 1 per leggere l'offset.
-    pub fn jr_cond(&mut self, condition: bool, banking: &mut Banking, mmu: &Mmu) {
-        let offset_raw = mmu.read_byte(banking, self.pc);
+    pub fn jr_cond(&mut self, condition: bool, mmu: &Mmu) {
+        let offset_raw = mmu.read_byte(self.pc);
         self.pc = self.pc.wrapping_add(1);
 
         if condition {
@@ -687,10 +686,10 @@ impl Cpu {
     ///
     /// Legge due byte dallo stack e li combina in un valore a 16-bit.
     /// Incrementa SP di 2.
-    pub fn pop_r16(&mut self, banking: &mut Banking, mmu: &mut Mmu) -> u16 {
-        let low = mmu.read_byte(banking, self.sp);
+    pub fn pop_r16(&mut self, mmu: &mut Mmu) -> u16 {
+        let low = mmu.read_byte(self.sp);
         self.sp = self.sp.wrapping_add(1);
-        let high = mmu.read_byte(banking, self.sp);
+        let high = mmu.read_byte(self.sp);
         self.sp = self.sp.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(12);
         low as u16 | ((high as u16) << 8)
@@ -699,11 +698,11 @@ impl Cpu {
     /// PUSH r16 - Carica coppia registri nello stack
     ///
     /// Scrive due byte (high, low) nello stack decrement ando SP di 2.
-    pub fn push_r16(&mut self, high: u8, low: u8, banking: &mut Banking, mmu: &mut Mmu) {
+    pub fn push_r16(&mut self, high: u8, low: u8, mmu: &mut Mmu) {
         self.sp = self.sp.wrapping_sub(1);
-        mmu.write_byte(banking, self.sp, high);
+        mmu.write_byte(self.sp, high);
         self.sp = self.sp.wrapping_sub(1);
-        mmu.write_byte(banking, self.sp, low);
+        mmu.write_byte(self.sp, low);
         self.cycles = self.cycles.wrapping_add(16);
     }
 
@@ -711,19 +710,19 @@ impl Cpu {
     ///
     /// Salva A come byte alto e F (con solo i 4 bit significativi) come byte basso.
     /// Decrementa SP di 2.
-    pub fn push_af(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
+    pub fn push_af(&mut self, mmu: &mut Mmu) {
         let high = self.a;
         let low = self.f & 0xF0; // I flag sono solo i 4 bit più significativi
-        self.push_r16(high, low, banking, mmu);
+        self.push_r16(high, low, mmu);
     }
 
     /// RET cond - Ritorno condizionato dalla subroutine
     ///
     /// Se la condizione è vera, esegue un ritorno incondizionato.
     /// Se la condizione è falsa, continua l'esecuzione sequenziale.
-    pub fn ret_cond(&mut self, _condition: bool, banking: &mut Banking, mmu: &mut Mmu) {
+    pub fn ret_cond(&mut self, _condition: bool, mmu: &mut Mmu) {
         if _condition {
-            self.ret_incond(banking, mmu);
+            self.ret_incond(mmu);
             self.cycles = self.cycles.wrapping_add(4);
         } else {
             self.cycles = self.cycles.wrapping_add(8);
@@ -733,16 +732,16 @@ impl Cpu {
     /// RET - Ritorno incondizionato dalla subroutine
     ///
     /// Estrae l'indirizzo di ritorno dallo stack e lo carica in PC.
-    pub fn ret_incond(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
-        self.pc = self.pop_r16(banking, mmu);
+    pub fn ret_incond(&mut self, mmu: &mut Mmu) {
+        self.pc = self.pop_r16(mmu);
         self.cycles = self.cycles.wrapping_add(4);
     }
 
     /// RETI - Ritorno da interrupt
     ///
     /// Esegue un ritorno dalla routine di interrupt e abilita gli interrupt (IME = true).
-    pub fn reti(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
-        self.ret_incond(banking, mmu);
+    pub fn reti(&mut self, mmu: &mut Mmu) {
+        self.ret_incond(mmu);
         self.ime = true; // Abilita gli interrupt dopo il ritorno
     }
 
@@ -750,10 +749,10 @@ impl Cpu {
     ///
     /// Se la condizione è vera, salta all'indirizzo n16.
     /// Se la condizione è falsa, continua l'esecuzione sequenziale.
-    pub fn jp_cond(&mut self, _condition: bool, banking: &mut Banking, mmu: &mut Mmu) {
-        let addr_low = mmu.read_byte(banking, self.pc);
+    pub fn jp_cond(&mut self, _condition: bool, mmu: &mut Mmu) {
+        let addr_low = mmu.read_byte(self.pc);
         self.pc = self.pc.wrapping_add(1);
-        let addr_high = mmu.read_byte(banking, self.pc);
+        let addr_high = mmu.read_byte(self.pc);
         self.pc = self.pc.wrapping_add(1);
         let addr = (addr_high as u16) << 8 | (addr_low as u16);
 
@@ -768,10 +767,10 @@ impl Cpu {
     /// JP n16 - Salto incondizionato a indirizzo assoluto
     ///
     /// Carica in PC l'indirizzo immediato n16 (letto da memoria).
-    pub fn jp(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
-        let addr_low = mmu.read_byte(banking, self.pc);
+    pub fn jp(&mut self, mmu: &mut Mmu) {
+        let addr_low = mmu.read_byte(self.pc);
         self.pc = self.pc.wrapping_add(1);
-        let addr_high = mmu.read_byte(banking, self.pc);
+        let addr_high = mmu.read_byte(self.pc);
         self.pc = self.pc.wrapping_add(1);
         let addr = (addr_high as u16) << 8 | (addr_low as u16);
         self.pc = addr;
@@ -791,9 +790,9 @@ impl Cpu {
     ///
     /// Se la condizione è vera, esegue una CALL incondizionata.
     /// Se la condizione è falsa, salta l'indirizzo di 2 byte.
-    pub fn call_cond(&mut self, _condition: bool, banking: &mut Banking, mmu: &mut Mmu) {
+    pub fn call_cond(&mut self, _condition: bool, mmu: &mut Mmu) {
         if _condition {
-            self.call(banking, mmu);
+            self.call(mmu);
         } else {
             self.pc = self.pc.wrapping_add(2); // Salta l'indirizzo di 2 byte
             self.cycles = self.cycles.wrapping_add(12); // Cicli totali se la condizione è falsa
@@ -804,17 +803,17 @@ impl Cpu {
     ///
     /// Carica l'indirizzo di ritorno (PC attuale) nello stack e salta a n16.
     /// Decrementa SP di 2.
-    pub fn call(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
-        let addr_low = mmu.read_byte(banking, self.pc);
+    pub fn call(&mut self, mmu: &mut Mmu) {
+        let addr_low = mmu.read_byte(self.pc);
         self.pc = self.pc.wrapping_add(1);
-        let addr_high = mmu.read_byte(banking, self.pc);
+        let addr_high = mmu.read_byte(self.pc);
         self.pc = self.pc.wrapping_add(1);
         let addr = (addr_high as u16) << 8 | (addr_low as u16);
 
         // Push the current PC onto the stack
         let pc_high = (self.pc >> 8) as u8;
         let pc_low = (self.pc & 0xFF) as u8;
-        self.push_r16(pc_high, pc_low, banking, mmu);
+        self.push_r16(pc_high, pc_low, mmu);
 
         // Jump to the target address
         self.pc = addr;
@@ -825,10 +824,10 @@ impl Cpu {
     ///
     /// Salva PC nello stack e salta a un indirizzo fisso (0x00, 0x08, 0x10, ecc.).
     /// Utilizzato per interrupt vectored.
-    pub fn rst(&mut self, target_addr: u16, banking: &mut Banking, mmu: &mut Mmu) {
+    pub fn rst(&mut self, target_addr: u16, mmu: &mut Mmu) {
         let pc_high = (self.pc >> 8) as u8;
         let pc_low = (self.pc & 0xFF) as u8;
-        self.push_r16(pc_high, pc_low, banking, mmu);
+        self.push_r16(pc_high, pc_low, mmu);
         self.pc = target_addr;
     }
 
@@ -836,8 +835,8 @@ impl Cpu {
     ///
     /// Addiziona un byte immediato (dal PC) ad A.
     /// Incrementa PC di 1. Modifica i flag Z, N, H, e C.
-    pub fn add_a_imm8(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
-        let value = mmu.read_byte(banking, self.pc);
+    pub fn add_a_imm8(&mut self, mmu: &mut Mmu) {
+        let value = mmu.read_byte(self.pc);
         self.alu_add(value);
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(4);
@@ -847,8 +846,8 @@ impl Cpu {
     ///
     /// Addiziona un byte immediato e il flag Carry ad A.
     /// Incrementa PC di 1. Modifica i flag Z, N, H, e C.
-    pub fn adc_a_imm8(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
-        let value = mmu.read_byte(banking, self.pc);
+    pub fn adc_a_imm8(&mut self, mmu: &mut Mmu) {
+        let value = mmu.read_byte(self.pc);
         self.alu_adc(value);
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(4);
@@ -858,8 +857,8 @@ impl Cpu {
     ///
     /// Sottrae un byte immediato da A.
     /// Incrementa PC di 1. Modifica i flag Z, N, H, e C.
-    pub fn sub_a_imm8(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
-        let value = mmu.read_byte(banking, self.pc);
+    pub fn sub_a_imm8(&mut self, mmu: &mut Mmu) {
+        let value = mmu.read_byte(self.pc);
         self.alu_sub(value);
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(4);
@@ -869,8 +868,8 @@ impl Cpu {
     ///
     /// Sottrae un byte immediato e il flag Carry da A.
     /// Incrementa PC di 1. Modifica i flag Z, N, H, e C.
-    pub fn sbc_a_imm8(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
-        let value = mmu.read_byte(banking, self.pc);
+    pub fn sbc_a_imm8(&mut self, mmu: &mut Mmu) {
+        let value = mmu.read_byte(self.pc);
         self.alu_sbc(value);
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(4);
@@ -881,8 +880,8 @@ impl Cpu {
     /// Addiziona un offset relativo (8-bit con segno) a SP.
     /// Azzera Z e N. Modifica H e C basati sull'operazione a 8-bit.
     /// Incrementa PC di 1.
-    pub fn add_sp_e8(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
-        let raw_offset = mmu.read_byte(banking, self.pc);
+    pub fn add_sp_e8(&mut self, mmu: &mut Mmu) {
+        let raw_offset = mmu.read_byte(self.pc);
         self.pc = self.pc.wrapping_add(1);
 
         let offset = raw_offset as i8 as i32;
@@ -907,8 +906,8 @@ impl Cpu {
     ///
     /// Esegue AND logico tra A e un byte immediato.
     /// Incrementa PC di 1. Imposta H=true, azzera N, H, C. Modifica Z.
-    pub fn and_a_imm8(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
-        let value = mmu.read_byte(banking, self.pc);
+    pub fn and_a_imm8(&mut self, mmu: &mut Mmu) {
+        let value = mmu.read_byte(self.pc);
         self.alu_and(value);
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(4);
@@ -918,8 +917,8 @@ impl Cpu {
     ///
     /// Esegue XOR logico tra A e un byte immediato.
     /// Incrementa PC di 1. Azzera i flag N, H, C. Modifica Z.
-    pub fn xor_a_imm8(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
-        let value = mmu.read_byte(banking, self.pc);
+    pub fn xor_a_imm8(&mut self, mmu: &mut Mmu) {
+        let value = mmu.read_byte(self.pc);
         self.alu_xor(value);
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(4);
@@ -929,8 +928,8 @@ impl Cpu {
     ///
     /// Esegue OR logico tra A e un byte immediato.
     /// Incrementa PC di 1. Azzera i flag N, H, C. Modifica Z.
-    pub fn or_a_imm8(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
-        let value = mmu.read_byte(banking, self.pc);
+    pub fn or_a_imm8(&mut self, mmu: &mut Mmu) {
+        let value = mmu.read_byte(self.pc);
         self.alu_or(value);
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(4);
@@ -940,8 +939,8 @@ impl Cpu {
     ///
     /// Confronta A con un byte immediato (sottrazione senza salvataggio).
     /// Incrementa PC di 1. Modifica i flag Z, N, H, e C.
-    pub fn cp_a_imm8(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
-        let value = mmu.read_byte(banking, self.pc);
+    pub fn cp_a_imm8(&mut self, mmu: &mut Mmu) {
+        let value = mmu.read_byte(self.pc);
         self.alu_cp(value);
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(4);
@@ -952,10 +951,10 @@ impl Cpu {
     /// Scrive A all'indirizzo 0xFF00 + offset (n8).
     /// Usa la memoria alta I/O (0xFF00-0xFFFF).
     /// Incrementa PC di 1.
-    pub fn ldh_mem8_a(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
-        let offset = mmu.read_byte(banking, self.pc) as u16;
+    pub fn ldh_mem8_a(&mut self, mmu: &mut Mmu) {
+        let offset = mmu.read_byte(self.pc) as u16;
         self.pc = self.pc.wrapping_add(1);
-        mmu.write_byte(banking, 0xFF00 | offset, self.a);
+        mmu.write_byte(0xFF00 | offset, self.a);
         self.cycles = self.cycles.wrapping_add(12);
     }
 
@@ -964,10 +963,10 @@ impl Cpu {
     /// Legge un byte da 0xFF00 + offset (n8) in A.
     /// Usa la memoria alta I/O (0xFF00-0xFFFF).
     /// Incrementa PC di 1.
-    pub fn ldh_a_mem8(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
-        let offset = mmu.read_byte(banking, self.pc) as u16;
+    pub fn ldh_a_mem8(&mut self, mmu: &mut Mmu) {
+        let offset = mmu.read_byte(self.pc) as u16;
         self.pc = self.pc.wrapping_add(1);
-        self.a = mmu.read_byte(banking, 0xFF00 | offset);
+        self.a = mmu.read_byte(0xFF00 | offset);
         self.cycles = self.cycles.wrapping_add(12);
     }
 
@@ -975,9 +974,9 @@ impl Cpu {
     ///
     /// Scrive A all'indirizzo 0xFF00 + C.
     /// Versione dinamica di LDH usando il registro C.
-    pub fn ld_mem_c_a(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
+    pub fn ld_mem_c_a(&mut self, mmu: &mut Mmu) {
         let addr = 0xFF00 | (self.c as u16);
-        mmu.write_byte(banking, addr, self.a);
+        mmu.write_byte(addr, self.a);
         self.cycles = self.cycles.wrapping_add(8);
     }
 
@@ -985,9 +984,9 @@ impl Cpu {
     ///
     /// Legge un byte da 0xFF00 + C in A.
     /// Versione dinamica di LDH usando il registro C.
-    pub fn ld_a_mem_c(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
+    pub fn ld_a_mem_c(&mut self, mmu: &mut Mmu) {
         let addr = 0xFF00 | (self.c as u16);
-        self.a = mmu.read_byte(banking, addr);
+        self.a = mmu.read_byte(addr);
         self.cycles = self.cycles.wrapping_add(8);
     }
 
@@ -995,14 +994,14 @@ impl Cpu {
     ///
     /// Legge un indirizzo a 16-bit dal PC e scrive A a quell'indirizzo.
     /// Incrementa PC di 2.
-    pub fn ld_mem16_a(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
-        let low = mmu.read_byte(banking, self.pc) as u16;
+    pub fn ld_mem16_a(&mut self, mmu: &mut Mmu) {
+        let low = mmu.read_byte(self.pc) as u16;
         self.pc = self.pc.wrapping_add(1);
-        let high = mmu.read_byte(banking, self.pc) as u16;
+        let high = mmu.read_byte(self.pc) as u16;
         self.pc = self.pc.wrapping_add(1);
 
         let addr = low | (high << 8);
-        mmu.write_byte(banking, addr, self.a);
+        mmu.write_byte(addr, self.a);
         self.cycles = self.cycles.wrapping_add(16);
     }
 
@@ -1010,14 +1009,14 @@ impl Cpu {
     ///
     /// Legge un indirizzo a 16-bit dal PC e carica il valore da quell'indirizzo in A.
     /// Incrementa PC di 2.
-    pub fn ld_a_mem16(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
-        let low = mmu.read_byte(banking, self.pc) as u16;
+    pub fn ld_a_mem16(&mut self, mmu: &mut Mmu) {
+        let low = mmu.read_byte(self.pc) as u16;
         self.pc = self.pc.wrapping_add(1);
-        let high = mmu.read_byte(banking, self.pc) as u16;
+        let high = mmu.read_byte(self.pc) as u16;
         self.pc = self.pc.wrapping_add(1);
 
         let addr = low | (high << 8);
-        self.a = mmu.read_byte(banking, addr);
+        self.a = mmu.read_byte(addr);
         self.cycles = self.cycles.wrapping_add(16);
     }
 
@@ -1026,8 +1025,8 @@ impl Cpu {
     /// Calcola SP + offset (8-bit con segno) e carica il risultato in HL.
     /// Azzera Z e N. Modifica H e C basati sull'operazione a 8-bit.
     /// Incrementa PC di 1.
-    pub fn ld_hl_sp_e8(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
-        let raw_offset = mmu.read_byte(banking, self.pc);
+    pub fn ld_hl_sp_e8(&mut self, mmu: &mut Mmu) {
+        let raw_offset = mmu.read_byte(self.pc);
         self.pc = self.pc.wrapping_add(1);
 
         let offset = raw_offset as i8 as i32;
@@ -1080,9 +1079,9 @@ impl Cpu {
     ///
     /// Legge il prossimo byte come opcode prefissato e lo elabora.
     /// Le istruzioni prefissate includono rotazioni, shift, bit operations, ecc.
-    pub fn cb(&mut self, banking: &mut Banking, mmu: &mut Mmu) {
-        let opcode = mmu.read_byte(banking, self.pc);
-        self.cb_prefixed(opcode, banking, mmu);
+    pub fn cb(&mut self, mmu: &mut Mmu) {
+        let opcode = mmu.read_byte(self.pc);
+        self.cb_prefixed(opcode, mmu);
         self.pc = self.pc.wrapping_add(1);
         self.cycles = self.cycles.wrapping_add(8);
     }
