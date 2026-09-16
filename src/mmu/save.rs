@@ -6,8 +6,8 @@ use std::path::PathBuf;
 
 impl Mmu {
     // Carica il file .sav all'avvio
-    pub fn load_save_file(&mut self, save_path: &str) {
-        if let Ok(mut file) = fs::File::open(save_path) {
+    pub fn load_save_file(&mut self) {
+        if let Ok(mut file) = fs::File::open(self.save_path.clone()) {
             let mut buffer = Vec::new();
             if file.read_to_end(&mut buffer).is_ok() {
                 self.banking.card_ram = buffer;

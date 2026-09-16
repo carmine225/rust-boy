@@ -3,8 +3,8 @@ use std::fs;
 use std::path::PathBuf;
 
 impl Mmu {
-    pub fn load_bios(&mut self, bios_path: PathBuf) {
-        let data = fs::read(bios_path).expect("Failed to read BIOS file");
+    pub fn load_bios(&mut self) {
+        let data = fs::read(self.bios_path.clone()).expect("Failed to read BIOS file");
         self.bios = data;
     }
 
