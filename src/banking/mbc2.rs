@@ -1,20 +1,22 @@
 use crate::banking::Banking;
 pub struct Mbc2 {
     pub current_rom_bank: u8,
-    pub current_ram_bank: u8,
     ram_enabled: bool,
 }
 impl Mbc2 {
     pub fn new() -> Self {
         Mbc2 {
             current_rom_bank: 1,
-            current_ram_bank: 0,
             ram_enabled: false,
         }
     }
     pub fn read(&mut self, banking: &mut Banking, address: u16) -> u8 {
         match address {
-            0x0000..=0x3FFF => banking.card_rom[address as usize],
+            0x0000..=0x3FFF => banking
+                .card_rom
+                .get(address as usize)
+                .copied()
+                .unwrap_or(0xFF),
             0x4000..=0x7FFF => {
                 let offset =
                     ((self.current_rom_bank as u16 * 0x4000) + (address - 0x4000)) as usize;
@@ -33,10 +35,13 @@ impl Mbc2 {
     }
     pub fn write(&mut self, banking: &mut Banking, address: u16, value: u8) {
         match address {
-            0x0000..=0x3FFF => {
+            0x0000..=0x1FFF => {
                 if (address & 0x0100) == 0 {
                     self.ram_enabled = (value & 0x0F) == 0x0A;
-                } else {
+                }
+            }
+            0x2000..=0x3FFF => {
+                if (address & 0x0100) != 0 {
                     let mut bank = (value & 0x0F) as usize;
                     if bank == 0 {
                         bank = 1;
