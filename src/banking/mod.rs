@@ -1,5 +1,3 @@
-use crate::banking::{huc1::Huc1, rom_only::RomOnly};
-
 mod huc1;
 mod huc3;
 mod m161;
@@ -30,21 +28,21 @@ pub enum Mapper {
     WisdomTree(wisdom_tree::WisdomTree),
 }
 impl Mapper {
-    pub fn current_rom_bank(&self) -> u8 {
+    pub fn current_rom_bank(&self) -> u16 {
         match self {
-            Mapper::Huc1(m) => m.current_rom_bank as u8,
-            Mapper::Huc3(m) => m.current_rom_bank as u8,
-            Mapper::M161(m) => m.current_rom_bank as u8,
-            Mapper::Mbc1(m) => m.current_rom_bank as u8,
-            Mapper::Mbc2(m) => m.current_rom_bank as u8,
-            Mapper::Mbc3(m) => m.current_rom_bank as u8,
-            Mapper::Mbc5(m) => m.current_rom_bank as u8,
-            Mapper::Mbc6(m) => m.current_rom_bank as u8,
-            Mapper::Mbc7(m) => m.current_rom_bank as u8,
-            Mapper::Mmm01(m) => m.current_rom_bank as u8,
-            Mapper::RomOnly(m) => m.current_rom_bank as u8,
-            Mapper::Tama5(m) => m.current_rom_bank as u8,
-            Mapper::WisdomTree(m) => m.current_rom_bank as u8,
+            Mapper::Huc1(m) => m.current_rom_bank as u16,
+            Mapper::Huc3(m) => m.current_rom_bank as u16,
+            Mapper::M161(m) => m.current_rom_bank as u16,
+            Mapper::Mbc1(m) => m.current_rom_bank as u16,
+            Mapper::Mbc2(m) => m.current_rom_bank as u16,
+            Mapper::Mbc3(m) => m.current_rom_bank as u16,
+            Mapper::Mbc5(m) => m.current_rom_bank,
+            Mapper::Mbc6(m) => m.current_rom_bank as u16,
+            Mapper::Mbc7(m) => m.current_rom_bank as u16,
+            Mapper::Mmm01(m) => m.current_rom_bank as u16,
+            Mapper::RomOnly(m) => m.current_rom_bank as u16,
+            Mapper::Tama5(m) => m.current_rom_bank as u16,
+            Mapper::WisdomTree(m) => m.current_rom_bank as u16,
         }
     }
     pub fn current_read(&mut self, banking: &mut Banking, address: u16) -> u8 {
@@ -55,12 +53,12 @@ impl Mapper {
             Mapper::Mbc1(m) => m.read(banking, address),
             Mapper::Mbc2(m) => m.read(banking, address),
             Mapper::Mbc3(m) => m.read(banking, address),
-            Mapper::Mbc5(m) => m.read(address),
+            Mapper::Mbc5(m) => m.read(banking, address),
             Mapper::Mbc6(m) => m.read(address),
             Mapper::Mbc7(m) => m.read(address),
             Mapper::Mmm01(m) => m.read(address),
             Mapper::Tama5(m) => m.read(address),
-            Mapper::RomOnly(_) => RomOnly::read(banking, address),
+            Mapper::RomOnly(m) => m.read(banking, address),
             Mapper::WisdomTree(m) => m.read(address),
         }
     }
@@ -72,12 +70,12 @@ impl Mapper {
             Mapper::Mbc1(m) => m.write(banking, address, value),
             Mapper::Mbc2(m) => m.write(banking, address, value),
             Mapper::Mbc3(m) => m.write(banking, address, value),
-            Mapper::Mbc5(m) => m.write(address, value),
+            Mapper::Mbc5(m) => m.write(banking, address, value),
             Mapper::Mbc6(m) => m.write(address, value),
             Mapper::Mbc7(m) => m.write(address, value),
             Mapper::Mmm01(m) => m.write(address, value),
             Mapper::Tama5(m) => m.write(address, value),
-            Mapper::RomOnly(_) => RomOnly::write(banking, address, value),
+            Mapper::RomOnly(m) => m.write(banking, address, value),
             Mapper::WisdomTree(m) => m.write(address, value),
         }
     }
@@ -104,9 +102,33 @@ impl Banking {
             ram_enabled: false,
         }
     }
+    pub fn detect_wisdom_tree(&self) -> bool {
+        if self.card_rom.len() < 0x0147 {
+            return false;
+        }
+
+        let title_bytes = &self.card_rom[0x0134..=0x0143];
+        let title = String::from_utf8_lossy(title_bytes).to_uppercase();
+
+        title.contains("WISDOM")
+            || title.contains("BIBLE")
+            || title.contains("NOAH")
+            || title.contains("SPIRIT")
+            || title.contains("EXODUS")
+            || title.contains("JOSHUA")
+    }
+
     pub fn manager(&mut self, banking_mode: u8) {
         self.mbc_type = banking_mode;
-        match banking_mode {
+
+        // Se il byte è 0x00 (ROM ONLY) ma il titolo corrisponde a Wisdom Tree, forza il mapper custom
+        let effective_mode = if banking_mode == 0x00 && self.detect_wisdom_tree() {
+            0xC0
+        } else {
+            banking_mode
+        };
+
+        match effective_mode {
             // ROM ONLY
             0x00 | 0x08 | 0x09 => {
                 self.mapper = Mapper::RomOnly(rom_only::RomOnly::new(banking_mode))
@@ -141,16 +163,19 @@ impl Banking {
             // MBC7
             0x22 => self.mapper = Mapper::Mbc7(mbc7::Mbc7::new()),
 
+            // Wisdom Tree Unlicensed
+            0xC0 => self.mapper = Mapper::WisdomTree(wisdom_tree::WisdomTree::new()),
+
             // Chip Speciali / Esotici
             0xFE => self.mapper = Mapper::Huc3(huc3::Huc3::new()),
             0xFF => self.mapper = Mapper::Huc1(huc1::Huc1::new()),
             0xEE => self.mapper = Mapper::M161(m161::M161::new()),
             0xEA => self.mapper = Mapper::Tama5(tama5::Tama5::new()),
             0x0B..=0x0D => self.mapper = Mapper::Mmm01(mmm01::Mmm01::new()),
+
             _ => {}
         }
     }
-
     pub fn write(&mut self, address: u16, value: u8) {
         let replacement = Banking::new().mapper;
         let mut mapper = std::mem::replace(&mut self.mapper, replacement);
@@ -177,9 +202,16 @@ impl Banking {
             0x05 => 0x10000, // 64 KiB (8 banchi da 8 KiB)
             _ => 0,
         };
-        if (0x00..=0x05).contains(&size_in_bytes) {
-            self.ram_enabled = true;
+        // The RAM-enable register starts locked. A non-empty card_ram vector
+        // represents RAM presence; the mapper unlocks it through writes.
+        self.ram_enabled = false;
+
+        // MBC2 always exposes 512 nibbles of internal RAM, regardless of
+        // the RAM-size header value (which is normally 0x00).
+        if matches!(self.mbc_type, 0x05 | 0x06) {
+            self.card_ram = vec![0; 512];
+        } else {
+            self.card_ram = vec![0; size_in_bytes];
         }
-        self.card_ram = vec![0; size_in_bytes];
     }
 }

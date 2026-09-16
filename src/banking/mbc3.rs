@@ -19,7 +19,11 @@ impl Mbc3 {
     }
     pub fn read(&mut self, banking: &mut Banking, address: u16) -> u8 {
         match address {
-            0x0000..=0x3FFF => banking.card_rom[address as usize],
+            0x0000..=0x3FFF => banking
+                .card_rom
+                .get(address as usize)
+                .copied()
+                .unwrap_or(0xFF),
 
             0x4000..=0x7FFF => {
                 let bank = if self.current_rom_bank == 0 {
@@ -27,12 +31,8 @@ impl Mbc3 {
                 } else {
                     self.current_rom_bank
                 };
-                let offset = ((bank as usize * 0x4000) + ((address - 0x4000) as usize)) as u8;
-                banking
-                    .card_rom
-                    .get(offset as usize)
-                    .copied()
-                    .unwrap_or(0xFF)
+                let offset = (bank as usize * 0x4000) + (address - 0x4000) as usize;
+                banking.card_rom.get(offset).copied().unwrap_or(0xFF)
             }
 
             0xA000..=0xBFFF => {
@@ -104,7 +104,7 @@ impl Mbc3 {
                     }
                     0x08..=0x0C => {
                         let idx = (self.ram_rtc_select - 0x08) as usize;
-                        self.latched_rtc[idx] = value;
+                        self.rct.set_mbc3_register(idx, value);
                     }
                     _ => {}
                 }

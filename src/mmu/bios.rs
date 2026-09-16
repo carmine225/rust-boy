@@ -8,8 +8,7 @@ impl Mmu {
         self.bios = data;
     }
 
-    pub fn get_bios_path(&mut self) {
-        fs::create_dir_all("bios").unwrap();
-        self.bios_path = PathBuf::from("bios");
+    pub fn set_bios_path(&mut self, bios_path: PathBuf) {
+        self.bios_path = bios_path.join("bios.gb");
     }
 }

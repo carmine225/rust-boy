@@ -18,14 +18,14 @@ impl Mbc2 {
             0x4000..=0x7FFF => {
                 let offset =
                     ((self.current_rom_bank as u16 * 0x4000) + (address - 0x4000)) as usize;
-                banking.card_rom[offset]
+                banking.card_rom.get(offset).copied().unwrap_or(0xFF)
             }
             0xA000..=0xBFFF => {
                 if !self.ram_enabled {
                     0xFF
                 } else {
                     let i = (address as usize) & 0x01FF;
-                    banking.card_ram[i] | 0xF0
+                    banking.card_ram.get(i).copied().unwrap_or(0x0F) | 0xF0
                 }
             }
             _ => 0xFF,
@@ -47,7 +47,9 @@ impl Mbc2 {
             0xA000..=0xBFFF => {
                 if self.ram_enabled {
                     let idx = (address as usize) & 0x01FF;
-                    banking.card_ram[idx] = value & 0x0F;
+                    if let Some(byte) = banking.card_ram.get_mut(idx) {
+                        *byte = value & 0x0F;
+                    }
                 }
             }
             _ => {}

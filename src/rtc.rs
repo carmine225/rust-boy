@@ -1,32 +1,78 @@
-use chrono::{Datelike, Local, Timelike};
+use chrono::{DateTime, Local};
 
 pub struct Rtc {
-    // Flag o offset se il gioco ferma/modifica l'ora
     pub halt: bool,
+    seconds: u8,
+    minutes: u8,
+    hours: u8,
+    days: u16,
+    carry: bool,
+    last_update: DateTime<Local>,
 }
 
 impl Rtc {
     pub fn new() -> Self {
-        Self { halt: false }
+        Self {
+            halt: false,
+            seconds: 0,
+            minutes: 0,
+            hours: 0,
+            days: 0,
+            carry: false,
+            last_update: Local::now(),
+        }
     }
 
-    /// Restituisce i 5 registri nello stile esatto richiesto da MBC3
-    pub fn get_mbc3_registers(&self) -> [u8; 5] {
+    fn update(&mut self) {
         let now = Local::now();
+        if !self.halt {
+            let elapsed = now
+                .signed_duration_since(self.last_update)
+                .num_seconds()
+                .max(0) as u64;
+            let current = self.seconds as u64
+                + self.minutes as u64 * 60
+                + self.hours as u64 * 3600
+                + self.days as u64 * 86400
+                + elapsed;
+            let day = current / 86400;
+            self.days = (day % 512) as u16;
+            self.carry |= day >= 512;
+            let day_seconds = current % 86400;
+            self.hours = (day_seconds / 3600) as u8;
+            self.minutes = ((day_seconds % 3600) / 60) as u8;
+            self.seconds = (day_seconds % 60) as u8;
+        }
+        self.last_update = now;
+    }
 
-        let seconds = now.second() as u8; // 0..=59
-        let minutes = now.minute() as u8; // 0..=59
-        let hours = now.hour() as u8; // 0..=23
+    pub fn get_mbc3_registers(&mut self) -> [u8; 5] {
+        self.update();
+        [
+            self.seconds,
+            self.minutes,
+            self.hours,
+            self.days as u8,
+            ((self.days >> 8) as u8 & 0x01)
+                | if self.halt { 0x40 } else { 0 }
+                | if self.carry { 0x80 } else { 0 },
+        ]
+    }
 
-        // Usa il giorno dell'anno (1..=366) per simulare il contatore giorni dell'MBC3
-        let day_of_year = now.ordinal() as u16;
-
-        let day_low = (day_of_year & 0xFF) as u8;
-        let day_high = ((day_of_year >> 8) & 0x01) as u8; // Bit 0: 9° bit dei giorni
-
-        // Bit 6 = Halt, Bit 0 = Day Bit 8
-        let control = (day_high) | if self.halt { 0x40 } else { 0x00 };
-
-        [seconds, minutes, hours, day_low, control]
+    pub fn set_mbc3_register(&mut self, index: usize, value: u8) {
+        self.update();
+        match index {
+            0 => self.seconds = value % 60,
+            1 => self.minutes = value % 60,
+            2 => self.hours = value % 24,
+            3 => self.days = (self.days & 0x100) | value as u16,
+            4 => {
+                self.days = (self.days & 0xFF) | ((value as u16 & 0x01) << 8);
+                self.halt = value & 0x40 != 0;
+                self.carry = value & 0x80 != 0;
+            }
+            _ => {}
+        }
+        self.last_update = Local::now();
     }
 }

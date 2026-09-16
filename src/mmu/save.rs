@@ -1,4 +1,3 @@
-use crate::banking::Banking;
 use crate::mmu::Mmu;
 use std::fs;
 use std::io::{Read, Write};
@@ -10,7 +9,8 @@ impl Mmu {
         if let Ok(mut file) = fs::File::open(self.save_path.clone()) {
             let mut buffer = Vec::new();
             if file.read_to_end(&mut buffer).is_ok() {
-                self.banking.card_ram = buffer;
+                let copy_len = buffer.len().min(self.banking.card_ram.len());
+                self.banking.card_ram[..copy_len].copy_from_slice(&buffer[..copy_len]);
             }
         }
     }
@@ -23,8 +23,7 @@ impl Mmu {
             }
         }
     }
-    pub fn get_save_path(&mut self) {
-        fs::create_dir_all("saves").unwrap();
-        self.save_path = PathBuf::from("saves");
+    pub fn set_save_path(&mut self, save_path: PathBuf) {
+        self.save_path = save_path;
     }
 }

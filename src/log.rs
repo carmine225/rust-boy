@@ -25,7 +25,3 @@ pub fn init_logger(log_file_path: &PathBuf) {
     logger.apply().unwrap();
 }
 
-pub fn log_path() -> std::path::PathBuf {
-    fs::create_dir_all("logs").unwrap();
-    std::path::PathBuf::from("logs")
-}

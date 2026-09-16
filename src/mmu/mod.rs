@@ -38,17 +38,9 @@ impl Mmu {
     pub fn read_byte(&mut self, address: u16) -> u8 {
         match address {
             // ROM Bank 00 (0x0000 - 0x3FFF) -> Primi 16 KiB fissi
-            0x0000..=0x3FFF => {
-                let idx = address as usize;
-                if idx < self.banking.card_rom.len() {
-                    self.banking.card_rom[idx]
-                } else {
-                    0xFF
-                }
-            }
-
-            // ROM Bank 01..N (0x4000 - 0x7FFF) -> Calcolato col banco attivo External RAM Cartuccia (0xA000 - 0xBFFF) -> Richiede RAM abilitata
-            0x4000..=0x7FFF | 0xA000..=0xBFFF => self.banking.read(address),
+            // ROM e RAM della cartuccia: il mapper deve controllare entrambe
+            // le finestre ROM, inclusa la banca fissa di MBC1 in mode 1.
+            0x0000..=0x7FFF | 0xA000..=0xBFFF => self.banking.read(address),
 
             // VRAM (0x8000 - 0x9FFF)
             0x8000..=0x9FFF => self.vram[(address - 0x8000) as usize],

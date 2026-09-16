@@ -11,10 +11,30 @@ impl Mbc1 {
     }
     pub fn read(&mut self, banking: &mut Banking, address: u16) -> u8 {
         match address {
-            0x0000..=0x3fff => banking.card_rom[address as usize],
+            0x0000..=0x3fff => {
+                let bank = if banking.banking_mode == 1 {
+                    (self.current_rom_bank & 0x60) as usize
+                } else {
+                    0
+                };
+                banking
+                    .card_rom
+                    .get(bank * 0x4000 + address as usize)
+                    .copied()
+                    .unwrap_or(0xFF)
+            }
             0x4000..=0x7fff => {
-                banking.card_rom
-                    [((self.current_rom_bank as u16 * 0x4000) + (address - 0x4000)) as usize]
+                let bank = if banking.banking_mode == 1 {
+                    self.current_rom_bank & 0x1F
+                } else {
+                    self.current_rom_bank
+                };
+                let bank = if bank == 0 { 1 } else { bank } as usize;
+                banking
+                    .card_rom
+                    .get(bank * 0x4000 + (address - 0x4000) as usize)
+                    .copied()
+                    .unwrap_or(0xFF)
             }
             0xA000..=0xBFFF => {
                 // Se la RAM non è abilitata o non è presente sulla cartuccia, restituisce 0xFF
@@ -22,7 +42,7 @@ impl Mbc1 {
                     0xFF
                 } else {
                     let offset =
-                        ((banking.current_ram_bank as u16 * 0x4000) + (address - 0x4000)) as usize;
+                        banking.current_ram_bank as usize * 0x2000 + (address - 0xA000) as usize;
                     if offset < banking.card_ram.len() {
                         banking.card_ram[offset]
                     } else {
@@ -43,7 +63,12 @@ impl Mbc1 {
                 if bank == 0 {
                     bank = 1;
                 }
-                self.current_rom_bank = ((self.current_rom_bank as usize & 0x60) | bank) as u8;
+                let high_bits = if banking.banking_mode == 0 {
+                    self.current_rom_bank as usize & 0x60
+                } else {
+                    0
+                };
+                self.current_rom_bank = (high_bits | bank) as u8;
             }
             0x4000..=0x5FFF => {
                 let bits = (value & 0x03) as usize;
@@ -52,6 +77,8 @@ impl Mbc1 {
                         ((self.current_rom_bank as usize & 0x1F) | (bits << 5)) as u8;
                     banking.current_ram_bank = 0;
                 } else {
+                    self.current_rom_bank =
+                        ((self.current_rom_bank as usize & 0x1F) | (bits << 5)) as u8;
                     banking.current_ram_bank = bits as u8;
                 }
             }
@@ -62,6 +89,15 @@ impl Mbc1 {
                 // Nota hardware: in Mode 0, la RAM torna sempre a puntare al Banco 0
                 if banking.banking_mode == 0 {
                     banking.current_ram_bank = 0;
+                }
+            }
+            0xA000..=0xBFFF => {
+                if banking.ram_enabled && !banking.card_ram.is_empty() {
+                    let offset =
+                        banking.current_ram_bank as usize * 0x2000 + (address - 0xA000) as usize;
+                    if let Some(byte) = banking.card_ram.get_mut(offset) {
+                        *byte = value;
+                    }
                 }
             }
             _ => {}
