@@ -3,6 +3,8 @@ mod cpu; // Registra il file cpu.rs
 mod log;
 mod macros; // Registra il file macro.rs
 mod mmu; // Registra il file cartridge/mod.rs
+mod system;
+mod timer;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
@@ -47,5 +49,6 @@ fn main() {
     log::init_logger(&log_file_path);
     mmu.load_bios();
     mmu.load_game();
-    cpu.step(&mut mmu); // Passa banking, MMU e PC iniziale
+    let mut timer = timer::Timer::new();
+    cpu.step(&mut mmu, &mut timer); // Passa MMU, timer e PC iniziale
 }

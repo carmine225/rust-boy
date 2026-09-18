@@ -10,6 +10,7 @@
 use crate::cpu::Cpu;
 use crate::get_u16register;
 use crate::mmu::Mmu;
+use crate::timer::Timer;
 
 impl Cpu {
     // ==========================================
@@ -34,11 +35,11 @@ impl Cpu {
     ///
     /// Ruota il valore in memoria a sinistra. Il bit 7 va al bit 0
     /// e nel flag Carry. Modifica i flag Z, N, H, e C.
-    pub fn rlc_hl_mem(&mut self, mmu: &mut Mmu) {
+    pub fn rlc_hl_mem(&mut self, mmu: &mut Mmu, timer: &mut Timer) {
         let hl = get_u16register!(self, self.h, self.l);
-        let val = mmu.read_byte(hl);
+        let val = mmu.read_byte(hl, timer);
         let res = self.rlc_r8(val);
-        mmu.write_byte(hl, res);
+        mmu.write_byte(hl, res, timer);
         self.cycles = self.cycles.wrapping_add(8); // 16 cicli totali
     }
 
@@ -63,11 +64,11 @@ impl Cpu {
     ///
     /// Ruota il valore in memoria a destra. Il bit 0 va al bit 7
     /// e nel flag Carry. Modifica i flag Z, N, H, e C.
-    pub fn rrc_hl_mem(&mut self, mmu: &mut Mmu) {
+    pub fn rrc_hl_mem(&mut self, mmu: &mut Mmu, timer: &mut Timer) {
         let hl = get_u16register!(self, self.h, self.l);
-        let val = mmu.read_byte(hl);
+        let val = mmu.read_byte(hl, timer);
         let res = self.rrc_r8(val);
-        mmu.write_byte(hl, res);
+        mmu.write_byte(hl, res, timer);
         self.cycles = self.cycles.wrapping_add(8);
     }
 
@@ -94,11 +95,11 @@ impl Cpu {
     ///
     /// Ruota il valore in memoria a sinistra attraverso il flag Carry.
     /// Il flag Carry entra al bit 0, il bit 7 esce nel flag Carry.
-    pub fn rl_hl_mem(&mut self, mmu: &mut Mmu) {
+    pub fn rl_hl_mem(&mut self, mmu: &mut Mmu, timer: &mut Timer) {
         let hl = get_u16register!(self, self.h, self.l);
-        let val = mmu.read_byte(hl);
+        let val = mmu.read_byte(hl, timer);
         let res = self.rl_r8(val);
-        mmu.write_byte(hl, res);
+        mmu.write_byte(hl, res, timer);
         self.cycles = self.cycles.wrapping_add(8);
     }
 
@@ -125,11 +126,11 @@ impl Cpu {
     ///
     /// Ruota il valore in memoria a destra attraverso il flag Carry.
     /// Il flag Carry entra al bit 7, il bit 0 esce nel flag Carry.
-    pub fn rr_hl_mem(&mut self, mmu: &mut Mmu) {
+    pub fn rr_hl_mem(&mut self, mmu: &mut Mmu, timer: &mut Timer) {
         let hl = get_u16register!(self, self.h, self.l);
-        let val = mmu.read_byte(hl);
+        let val = mmu.read_byte(hl, timer);
         let res = self.rr_r8(val);
-        mmu.write_byte(hl, res);
+        mmu.write_byte(hl, res, timer);
         self.cycles = self.cycles.wrapping_add(8);
     }
 
@@ -154,11 +155,11 @@ impl Cpu {
     ///
     /// Sposta il valore in memoria a sinistra di 1 posizione.
     /// Bit 7 esce nel Carry, bit 0 viene azzerato.
-    pub fn sla_hl_mem(&mut self, mmu: &mut Mmu) {
+    pub fn sla_hl_mem(&mut self, mmu: &mut Mmu, timer: &mut Timer) {
         let hl = get_u16register!(self, self.h, self.l);
-        let val = mmu.read_byte(hl);
+        let val = mmu.read_byte(hl, timer);
         let res = self.sla_r8(val);
-        mmu.write_byte(hl, res);
+        mmu.write_byte(hl, res, timer);
         self.cycles = self.cycles.wrapping_add(8);
     }
 
@@ -184,11 +185,11 @@ impl Cpu {
     ///
     /// Sposta il valore in memoria a destra, mantenendo il bit 7.
     /// Bit 0 esce nel Carry.
-    pub fn sra_hl_mem(&mut self, mmu: &mut Mmu) {
+    pub fn sra_hl_mem(&mut self, mmu: &mut Mmu, timer: &mut Timer) {
         let hl = get_u16register!(self, self.h, self.l);
-        let val = mmu.read_byte(hl);
+        let val = mmu.read_byte(hl, timer);
         let res = self.sra_r8(val);
-        mmu.write_byte(hl, res);
+        mmu.write_byte(hl, res, timer);
         self.cycles = self.cycles.wrapping_add(8);
     }
 
@@ -212,11 +213,11 @@ impl Cpu {
     ///
     /// Scambia il nibble alto e basso del valore in memoria.
     /// Azzera i flag N, H, C. Modifica Z.
-    pub fn swap_hl_mem(&mut self, mmu: &mut Mmu) {
+    pub fn swap_hl_mem(&mut self, mmu: &mut Mmu, timer: &mut Timer) {
         let hl = get_u16register!(self, self.h, self.l);
-        let val = mmu.read_byte(hl);
+        let val = mmu.read_byte(hl, timer);
         let res = self.swap_r8(val);
-        mmu.write_byte(hl, res);
+        mmu.write_byte(hl, res, timer);
         self.cycles = self.cycles.wrapping_add(8);
     }
 
@@ -241,11 +242,11 @@ impl Cpu {
     ///
     /// Sposta il valore in memoria a destra di 1 posizione.
     /// Bit 7 viene azzerato, bit 0 esce nel Carry.
-    pub fn srl_hl_mem(&mut self, mmu: &mut Mmu) {
+    pub fn srl_hl_mem(&mut self, mmu: &mut Mmu, timer: &mut Timer) {
         let hl = get_u16register!(self, self.h, self.l);
-        let val = mmu.read_byte(hl);
+        let val = mmu.read_byte(hl, timer);
         let res = self.srl_r8(val);
-        mmu.write_byte(hl, res);
+        mmu.write_byte(hl, res, timer);
         self.cycles = self.cycles.wrapping_add(8);
     }
 
@@ -268,9 +269,9 @@ impl Cpu {
     ///
     /// Verifica se il bit b è impostato nel valore in memoria.
     /// Azzera N, imposta H. Modifica Z in base al bit testato.
-    pub fn bit_b_hl_mem(&mut self, bit: u8, mmu: &mut Mmu) {
+    pub fn bit_b_hl_mem(&mut self, bit: u8, mmu: &mut Mmu, timer: &mut Timer) {
         let hl = get_u16register!(self, self.h, self.l);
-        let val = mmu.read_byte(hl);
+        let val = mmu.read_byte(hl, timer);
         self.bit_b_r8(bit, val);
         self.cycles = self.cycles.wrapping_add(4); // 12 cicli totali con cb()
     }
@@ -289,11 +290,11 @@ impl Cpu {
     /// RES b, (HL) - Azzera (Reset) bit in memoria (HL)
     ///
     /// Imposta il bit b a 0 nel valore in memoria.
-    pub fn res_b_hl_mem(&mut self, bit: u8, mmu: &mut Mmu) {
+    pub fn res_b_hl_mem(&mut self, bit: u8, mmu: &mut Mmu, timer: &mut Timer) {
         let hl = get_u16register!(self, self.h, self.l);
-        let val = mmu.read_byte(hl);
+        let val = mmu.read_byte(hl, timer);
         let res = self.res_b_r8(bit, val);
-        mmu.write_byte(hl, res);
+        mmu.write_byte(hl, res, timer);
         self.cycles = self.cycles.wrapping_add(8);
     }
 
@@ -311,11 +312,11 @@ impl Cpu {
     /// SET b, (HL) - Setta bit in memoria (HL)
     ///
     /// Imposta il bit b a 1 nel valore in memoria.
-    pub fn set_b_hl_mem(&mut self, bit: u8, mmu: &mut Mmu) {
+    pub fn set_b_hl_mem(&mut self, bit: u8, mmu: &mut Mmu, timer: &mut Timer) {
         let hl = get_u16register!(self, self.h, self.l);
-        let val = mmu.read_byte(hl);
+        let val = mmu.read_byte(hl, timer);
         let res = self.set_b_r8(bit, val);
-        mmu.write_byte(hl, res);
+        mmu.write_byte(hl, res, timer);
         self.cycles = self.cycles.wrapping_add(8);
     }
 }
