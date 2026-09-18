@@ -41,7 +41,7 @@ pub struct Cpu {
     l: u8,
     sp: u16, // Stack Pointer
     pc: u16, // Program Counter
-    cycles: u64,
+    cycles: u32,
     stopped: bool,
     halted: bool,
     halt_bug_triggered: bool,
@@ -87,7 +87,7 @@ impl Cpu {
     ///
     /// # Arguments
     /// * `mmu` - Riferimento mutabile alla Memory Management Unit per accedere alla memoria.
-    pub fn step(&mut self, mmu: &mut Mmu) {
+    pub fn step(&mut self, mmu: &mut Mmu) -> u32 {
         let opcode = mmu.read_byte(self.pc);
         self.pc = self.pc.wrapping_add(1);
         match opcode {
@@ -533,6 +533,7 @@ impl Cpu {
             self.pc,
             self.cycles
         );
+        self.cycles
     }
 
     /// Dispatcher per le istruzioni prefissate con 0xCB.
