@@ -23,8 +23,8 @@ use crate::get_u16register;
 use crate::mmu::Mmu;
 use crate::set_u16register;
 use crate::timer::Timer;
+mod bios_helper;
 mod flag_helper;
-mod helper;
 mod prefixed_fn;
 mod unprefixed_fn;
 
