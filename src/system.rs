@@ -20,7 +20,16 @@ impl System {
         }
     }
     fn step(&mut self) {
-        self.cycles = self.cpu.step(&mut self.mmu, &mut self.timer);
+        let interrupt_cycles = self.cpu.handle_interrupts(&mut self.mmu, &mut self.timer);
+
+        if interrupt_cycles > 0 {
+            self.cycles = interrupt_cycles;
+        } else if self.cpu.halted {
+            self.cycles = 4;
+        } else {
+            self.cycles = self.cpu.step(&mut self.mmu, &mut self.timer);
+        }
+
         self.timer
             .tick(self.cycles, &mut self.mmu.io_registers[0x0F]);
     }

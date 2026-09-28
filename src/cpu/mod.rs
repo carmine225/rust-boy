@@ -25,6 +25,7 @@ use crate::set_u16register;
 use crate::timer::Timer;
 mod bios_helper;
 mod flag_helper;
+mod interrupt;
 mod prefixed_fn;
 mod unprefixed_fn;
 
@@ -45,7 +46,7 @@ pub struct Cpu {
     pc: u16,     // Program Counter
     cycles: u32, //T-cycles
     stopped: bool,
-    halted: bool,
+    pub halted: bool,
     halt_bug_triggered: bool,
     ime: bool, //Interrupt Master Enable
     interrupt_enable: u8,
@@ -91,7 +92,11 @@ impl Cpu {
     /// * `mmu` - Riferimento mutabile alla Memory Management Unit per accedere alla memoria.
     pub fn step(&mut self, mmu: &mut Mmu, timer: &mut Timer) -> u32 {
         let opcode = mmu.read_byte(self.pc, timer);
-        self.pc = self.pc.wrapping_add(1);
+        if self.halt_bug_triggered {
+            self.halt_bug_triggered = false;
+        } else {
+            self.pc = self.pc.wrapping_add(1);
+        }
         match opcode {
             // ==========================================
             // ISTRUZIONI DI CONTROLLO E SPECIALI
