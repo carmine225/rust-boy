@@ -49,6 +49,7 @@ pub struct Cpu {
     pub halted: bool,
     halt_bug_triggered: bool,
     ime: bool, //Interrupt Master Enable
+    ime_enable_delay: u8,
     interrupt_enable: u8,
     interrupt_flag: u8,
 }
@@ -78,6 +79,7 @@ impl Cpu {
             halted: false, // indicates whether the CPU is halted (waiting for an interrupt)
             halt_bug_triggered: false, // indicates whether the halt bug has been triggered
             ime: false,    // Interrupt Master Enable flag
+            ime_enable_delay: 0,
             interrupt_enable: 0,
             interrupt_flag: 0,
         }
@@ -525,6 +527,12 @@ impl Cpu {
             0xCB => self.cb(mmu, timer),
             _ => error!("Opcode non valido: {:#04X}", opcode),
         }
+        if self.ime_enable_delay > 0 {
+            self.ime_enable_delay -= 1;
+            if self.ime_enable_delay == 0 {
+                self.ime = true;
+            }
+        }
         trace!(
             "CPU State after executing opcode {:#04X}: A={:#04X}, F={:#04X}, B={:#04X}, C={:#04X}, D={:#04X}, E={:#04X}, H={:#04X}, L={:#04X}, SP={:#06X}, PC={:#06X}, Cycles={}",
             opcode,
@@ -853,5 +861,33 @@ impl Cpu {
             0xFE => self.set_b_hl_mem(7, mmu, timer),
             0xFF => self.a = self.set_b_r8(7, self.a),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Cpu;
+    use crate::{mmu::Mmu, timer::Timer};
+
+    #[test]
+    fn ei_enables_interrupts_after_the_following_instruction() {
+        let mut cpu = Cpu::new();
+        let mut mmu = Mmu::new();
+        let mut timer = Timer::new();
+
+        cpu.pc = 0xFF80;
+        mmu.write_byte(0xFF80, 0xFB, &mut timer);
+        mmu.write_byte(0xFF81, 0x00, &mut timer);
+        mmu.write_byte(0xFFFF, 0x01, &mut timer);
+        mmu.write_byte(0xFF0F, 0x01, &mut timer);
+
+        cpu.step(&mut mmu, &mut timer);
+        assert!(!cpu.ime);
+        assert_eq!(cpu.handle_interrupts(&mut mmu, &mut timer), 0);
+
+        cpu.step(&mut mmu, &mut timer);
+        assert!(cpu.ime);
+        assert_eq!(cpu.handle_interrupts(&mut mmu, &mut timer), 20);
+        assert_eq!(cpu.pc, 0x0040);
     }
 }

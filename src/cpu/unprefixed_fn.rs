@@ -744,6 +744,7 @@ impl Cpu {
     pub fn reti(&mut self, mmu: &mut Mmu, timer: &mut Timer) {
         self.ret_incond(mmu, timer);
         self.ime = true; // Abilita gli interrupt dopo il ritorno
+        self.ime_enable_delay = 0;
     }
 
     /// JP cond, n16 - Salto condizionato a indirizzo assoluto
@@ -1064,6 +1065,7 @@ impl Cpu {
     /// Gli interrupt rimangono disabilitati finché non viene eseguita EI.
     pub fn di(&mut self) {
         self.ime = false;
+        self.ime_enable_delay = 0;
         self.cycles = self.cycles.wrapping_add(4);
     }
 
@@ -1072,7 +1074,9 @@ impl Cpu {
     /// Imposta il flag IME (Interrupt Master Enable).
     /// Gli interrupt vengono abilitati dopo l'istruzione successiva.
     pub fn ei(&mut self) {
-        self.ime = true;
+        if !self.ime && self.ime_enable_delay == 0 {
+            self.ime_enable_delay = 2;
+        }
         self.cycles = self.cycles.wrapping_add(4);
     }
 
