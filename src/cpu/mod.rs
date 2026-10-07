@@ -43,7 +43,7 @@ pub struct Cpu {
     h: u8,
     l: u8,
     sp: u16,     // Stack Pointer
-    pc: u16,     // Program Counter
+    pub pc: u16, // Program Counter
     cycles: u32, //T-cycles
     stopped: bool,
     pub halted: bool,

@@ -1,19 +1,18 @@
 mod banking;
-mod cpu; // Registra il file cpu.rs
+mod cpu;
 mod log;
-mod macros; // Registra il file macro.rs
-mod mmu; // Registra il file cartridge/mod.rs
+mod macros;
+mod mmu;
+mod rtc;
 mod system;
 mod timer;
+
 use std::fs;
 use std::io;
 use std::path::PathBuf;
-mod rtc;
+use system::System;
 
 fn main() {
-    let mut cpu = cpu::Cpu::new();
-    let mut mmu = mmu::Mmu::new();
-
     let app_path = PathBuf::from(env!("CARGO_PKG_NAME"));
     let bios_path = app_path.join("bios");
     let game_path = app_path.join("game");
@@ -36,19 +35,36 @@ fn main() {
         })
         .expect("Nessun file .gb trovato nella cartella rust-boy/game");
 
-    println!("Inserisci un input per avviare {}", game_file.display());
+    println!("Premi Invio per avviare {}", game_file.display());
     let mut input = String::new();
     io::stdin()
         .read_line(&mut input)
         .expect("Impossibile leggere l'input");
 
+    // Inizializza la MMU e carica i file
+    let mut mmu = mmu::Mmu::new();
     mmu.set_bios_path(bios_path);
     mmu.set_game_path(game_file.clone());
     mmu.set_save_path(save_path);
+
     let log_file_path = log_path.join("rust-boy.log");
     log::init_logger(&log_file_path);
+
     mmu.load_bios();
     mmu.load_game();
-    let mut timer = timer::Timer::new();
-    cpu.step(&mut mmu, &mut timer); // Passa MMU, timer e PC iniziale
+
+    // Crea il coordinator System passando la MMU inizializzata
+    let mut system = System::new(mmu);
+
+    // Se non stai usando una Boot ROM reale, imposta il PC allo stato post-boot DMG (0x0100)
+    system.cpu.pc = 0x0100;
+
+    println!("Avvio del loop di emulazione...");
+
+    // Loop principale: esegue l'emulazione frame per frame
+    loop {
+        system.step_frame();
+
+        // TODO (P0.7): Inserire qui l'aggiornamento della PPU e del rendering grafico
+    }
 }
