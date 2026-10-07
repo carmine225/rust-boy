@@ -15,7 +15,7 @@ pub struct Mmu {
     banking: Banking,
     game_path: PathBuf,
     bios: Vec<u8>,
-    bios_enabe: bool,
+    bios_enable: bool,
     bios_path: PathBuf,
     save_path: PathBuf,
 }
@@ -32,7 +32,7 @@ impl Mmu {
             banking: Banking::new(),
             game_path: PathBuf::new(),
             bios: Vec::new(),
-            bios_enabe: false,
+            bios_enable: false,
             bios_path: PathBuf::new(),
             save_path: PathBuf::new(),
         }
@@ -40,9 +40,16 @@ impl Mmu {
 
     pub fn read_byte(&mut self, address: u16, timer: &mut timer::Timer) -> u8 {
         match address {
-            // ROM Bank 00 (0x0000 - 0x3FFF) -> Primi 16 KiB fissi
-            // ROM e RAM della cartuccia: il mapper deve controllare entrambe
-            // le finestre ROM, inclusa la banca fissa di MBC1 in mode 1.
+            // Mappatura BIOS: 0x0000 - 0x00FF se attivo
+            0x0000..=0x00FF if self.bios_enable => {
+                if let Some(&byte) = self.bios.get(address as usize) {
+                    byte
+                } else {
+                    self.banking.read(address)
+                }
+            }
+
+            // ROM e RAM della cartuccia (0x0000 - 0x7FFF | 0xA000 - 0xBFFF)
             0x0000..=0x7FFF | 0xA000..=0xBFFF => self.banking.read(address),
 
             // VRAM (0x8000 - 0x9FFF)
@@ -51,7 +58,7 @@ impl Mmu {
             // WRAM (0xC000 - 0xDFFF)
             0xC000..=0xDFFF => self.wram[(address - 0xC000) as usize],
 
-            // Echo RAM (0xE000 - 0xFDFF)
+            // Echo RAM (0xE000 - 0xFDFF) -> Alias diretto di C000 - DDFF
             0xE000..=0xFDFF => self.wram[(address - 0xE000) as usize],
 
             // OAM (0xFE00 - 0xFE9F)
@@ -60,26 +67,35 @@ impl Mmu {
             // Area non utilizzata
             0xFEA0..=0xFEFF => 0xFF,
 
-            // Registri I/O, HRAM, IE
-            // Registri I/O, HRAM, IE
+            // Timer (0xFF04 - 0xFF07)
             0xFF04..=0xFF07 => timer.read_byte(address),
+
+            // IF Register (0xFF0F) - I 3 bit superiori sono inutilizzati e ritornano 1 su DMG
             0xFF0F => self.io_registers[0x0F] | 0xE0,
+
+            // Registro disattivazione BIOS (0xFF50)
             0xFF50 => {
-                if self.bios_enabe {
+                if self.bios_enable {
                     0x00
                 } else {
                     0xFF
                 }
             }
+
+            // Registri I/O generici (0xFF00 - 0xFF7F)
             0xFF00..=0xFF7F => self.io_registers[(address - 0xFF00) as usize],
+
+            // HRAM (0xFF80 - 0xFFFE)
             0xFF80..=0xFFFE => self.hram[(address - 0xFF80) as usize],
+
+            // IE Register (0xFFFF)
             0xFFFF => self.ie_register,
         }
     }
 
     pub fn write_byte(&mut self, address: u16, value: u8, timer: &mut timer::Timer) {
         match address {
-            // Scrittura in ROM -> Inoltrata al gestore del modulo banking  || External RAM Cartuccia (0xA000 - 0xBFFF)
+            // Cartuccia / Banking
             0x0000..=0x7FFF | 0xA000..=0xBFFF => self.banking.write(address, value),
 
             // VRAM
@@ -88,7 +104,7 @@ impl Mmu {
             // WRAM
             0xC000..=0xDFFF => self.wram[(address - 0xC000) as usize] = value,
 
-            // Echo RAM
+            // Echo RAM (scrittura specchiata su WRAM)
             0xE000..=0xFDFF => self.wram[(address - 0xE000) as usize] = value,
 
             // OAM
@@ -97,11 +113,23 @@ impl Mmu {
             // Area non utilizzata
             0xFEA0..=0xFEFF => {}
 
-            // Registri I/O, HRAM, IE
-            // Registri I/O, HRAM, IE
-            0xFF04..=0xFF07 => timer.write_byte(address, value), // Intercetta le scritture sul Timer
+            // Timer
+            0xFF04..=0xFF07 => timer.write_byte(address, value),
+
+            // Disattivazione permanente BIOS se viene scritto un valore != 0
+            0xFF50 => {
+                if value != 0 {
+                    self.bios_enable = false;
+                }
+            }
+
+            // Registri I/O generici
             0xFF00..=0xFF7F => self.io_registers[(address - 0xFF00) as usize] = value,
+
+            // HRAM
             0xFF80..=0xFFFE => self.hram[(address - 0xFF80) as usize] = value,
+
+            // IE Register
             0xFFFF => self.ie_register = value,
         }
     }
