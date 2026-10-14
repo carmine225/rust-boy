@@ -116,6 +116,16 @@ impl Mmu {
             // Timer
             0xFF04..=0xFF07 => timer.write_byte(address, value),
 
+            // DMA OAM: trasferisce una pagina di 160 byte in OAM
+            0xFF46 => {
+                self.io_registers[0x46] = value;
+                let source = (value as u16) << 8;
+                for offset in 0..160 {
+                    let byte = self.read_byte(source + offset as u16, timer);
+                    self.oam[offset] = byte;
+                }
+            }
+
             // Disattivazione permanente BIOS se viene scritto un valore != 0
             0xFF50 => {
                 if value != 0 {
@@ -131,6 +141,75 @@ impl Mmu {
 
             // IE Register
             0xFFFF => self.ie_register = value,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Mmu;
+    use crate::timer::Timer;
+
+    #[test]
+    fn memory_regions_and_echo_ram_are_mapped_correctly() {
+        let mut mmu = Mmu::new();
+        let mut timer = Timer::new();
+
+        mmu.write_byte(0x8000, 0x12, &mut timer);
+        mmu.write_byte(0x9FFF, 0x34, &mut timer);
+        mmu.write_byte(0xC000, 0x56, &mut timer);
+        mmu.write_byte(0xDDFF, 0x78, &mut timer);
+        mmu.write_byte(0xFE00, 0x9A, &mut timer);
+        mmu.write_byte(0xFE9F, 0xBC, &mut timer);
+        mmu.write_byte(0xFF80, 0xDE, &mut timer);
+        mmu.write_byte(0xFFFE, 0xF0, &mut timer);
+
+        assert_eq!(mmu.read_byte(0x8000, &mut timer), 0x12);
+        assert_eq!(mmu.read_byte(0x9FFF, &mut timer), 0x34);
+        assert_eq!(mmu.read_byte(0xC000, &mut timer), 0x56);
+        assert_eq!(mmu.read_byte(0xE000, &mut timer), 0x56);
+        assert_eq!(mmu.read_byte(0xDDFF, &mut timer), 0x78);
+        assert_eq!(mmu.read_byte(0xFDFF, &mut timer), 0x78);
+        assert_eq!(mmu.read_byte(0xFE00, &mut timer), 0x9A);
+        assert_eq!(mmu.read_byte(0xFE9F, &mut timer), 0xBC);
+        assert_eq!(mmu.read_byte(0xFF80, &mut timer), 0xDE);
+        assert_eq!(mmu.read_byte(0xFFFE, &mut timer), 0xF0);
+        assert_eq!(mmu.read_byte(0xFEA0, &mut timer), 0xFF);
+        mmu.write_byte(0xFEA0, 0x11, &mut timer);
+        assert_eq!(mmu.read_byte(0xFEA0, &mut timer), 0xFF);
+    }
+
+    #[test]
+    fn io_interrupt_and_timer_registers_are_routed_correctly() {
+        let mut mmu = Mmu::new();
+        let mut timer = Timer::new();
+
+        mmu.write_byte(0xFF00, 0x21, &mut timer);
+        mmu.write_byte(0xFF7F, 0x43, &mut timer);
+        mmu.write_byte(0xFFFF, 0x1F, &mut timer);
+        mmu.write_byte(0xFF0F, 0x05, &mut timer);
+        mmu.write_byte(0xFF05, 0x67, &mut timer);
+
+        assert_eq!(mmu.read_byte(0xFF00, &mut timer), 0x21);
+        assert_eq!(mmu.read_byte(0xFF7F, &mut timer), 0x43);
+        assert_eq!(mmu.read_byte(0xFFFF, &mut timer), 0x1F);
+        assert_eq!(mmu.read_byte(0xFF0F, &mut timer), 0xE5);
+        assert_eq!(mmu.read_byte(0xFF05, &mut timer), 0x67);
+    }
+
+    #[test]
+    fn dma_copies_one_page_into_oam() {
+        let mut mmu = Mmu::new();
+        let mut timer = Timer::new();
+
+        for offset in 0u16..160 {
+            mmu.write_byte(0xC000 + offset, offset as u8, &mut timer);
+        }
+        mmu.write_byte(0xFF46, 0xC0, &mut timer);
+
+        assert_eq!(mmu.read_byte(0xFF46, &mut timer), 0xC0);
+        for offset in 0u16..160 {
+            assert_eq!(mmu.read_byte(0xFE00 + offset, &mut timer), offset as u8);
         }
     }
 }

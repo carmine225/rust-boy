@@ -106,4 +106,48 @@ mod tests {
         assert_eq!(timer.read_byte(0xFF05), 0x50);
         assert_ne!(if_reg & 0x04, 0);
     }
+
+    #[test]
+    fn each_tac_frequency_increments_tima_at_the_expected_period() {
+        for (frequency, period) in [(0, 1024), (1, 16), (2, 64), (3, 256)] {
+            let mut timer = Timer::new();
+            let mut if_reg = 0;
+            timer.write_byte(0xFF07, 0x04 | frequency);
+
+            timer.tick(period - 1, &mut if_reg);
+            assert_eq!(timer.tima, 0, "TAC frequency {frequency}");
+            timer.tick(1, &mut if_reg);
+            assert_eq!(timer.tima, 1, "TAC frequency {frequency}");
+        }
+    }
+
+    #[test]
+    fn timer_register_writes_and_hardware_masks_are_applied() {
+        let mut timer = Timer::new();
+        let mut if_reg = 0;
+
+        timer.tick(255, &mut if_reg);
+        assert_eq!(timer.read_byte(0xFF04), 0);
+        timer.tick(1, &mut if_reg);
+        assert_eq!(timer.read_byte(0xFF04), 1);
+
+        timer.write_byte(0xFF04, 0xFF);
+        timer.write_byte(0xFF05, 0x12);
+        timer.write_byte(0xFF06, 0x34);
+        timer.write_byte(0xFF07, 0xFF);
+        assert_eq!(timer.read_byte(0xFF04), 0);
+        assert_eq!(timer.read_byte(0xFF05), 0x12);
+        assert_eq!(timer.read_byte(0xFF06), 0x34);
+        assert_eq!(timer.read_byte(0xFF07), 0xFF);
+    }
+
+    #[test]
+    fn disabled_timer_does_not_increment_tima() {
+        let mut timer = Timer::new();
+        let mut if_reg = 0;
+        timer.tick(2048, &mut if_reg);
+
+        assert_eq!(timer.tima, 0);
+        assert_eq!(if_reg & 0x04, 0);
+    }
 }

@@ -890,4 +890,73 @@ mod tests {
         assert_eq!(cpu.handle_interrupts(&mut mmu, &mut timer), 20);
         assert_eq!(cpu.pc, 0x0040);
     }
+
+    #[test]
+    fn di_disables_interrupts_immediately() {
+        let mut cpu = Cpu::new();
+        let mut mmu = Mmu::new();
+        let mut timer = Timer::new();
+        cpu.pc = 0xFF80;
+        cpu.ime = true;
+        mmu.write_byte(0xFF80, 0xF3, &mut timer);
+
+        cpu.step(&mut mmu, &mut timer);
+
+        assert!(!cpu.ime);
+    }
+
+    #[test]
+    fn halt_enters_wait_state_and_triggers_halt_bug_when_appropriate() {
+        let mut timer = Timer::new();
+        let mut halted_cpu = Cpu::new();
+        let mut halted_mmu = Mmu::new();
+        halted_cpu.pc = 0xFF80;
+        halted_cpu.ime = true;
+        halted_mmu.write_byte(0xFF80, 0x76, &mut timer);
+        halted_cpu.step(&mut halted_mmu, &mut timer);
+        assert!(halted_cpu.halted);
+
+        let mut bug_cpu = Cpu::new();
+        let mut bug_mmu = Mmu::new();
+        bug_cpu.pc = 0xFF80;
+        bug_cpu.interrupt_enable = 1;
+        bug_cpu.interrupt_flag = 1;
+        bug_mmu.write_byte(0xFF80, 0x76, &mut timer);
+        bug_cpu.step(&mut bug_mmu, &mut timer);
+        assert!(!bug_cpu.halted);
+        assert!(bug_cpu.halt_bug_triggered);
+    }
+
+    #[test]
+    fn stop_consumes_padding_byte_and_enters_stop_state() {
+        let mut cpu = Cpu::new();
+        let mut mmu = Mmu::new();
+        let mut timer = Timer::new();
+        cpu.pc = 0xFF80;
+        mmu.write_byte(0xFF80, 0x10, &mut timer);
+        mmu.write_byte(0xFF81, 0x00, &mut timer);
+
+        assert_eq!(cpu.step(&mut mmu, &mut timer), 4);
+        assert!(cpu.stopped);
+        assert_eq!(cpu.pc, 0xFF82);
+    }
+
+    #[test]
+    fn reti_restores_pc_and_enables_interrupts() {
+        let mut cpu = Cpu::new();
+        let mut mmu = Mmu::new();
+        let mut timer = Timer::new();
+        cpu.pc = 0xFF80;
+        cpu.sp = 0xFFFC;
+        mmu.write_byte(0xFF80, 0xD9, &mut timer);
+        mmu.write_byte(0xFFFC, 0xCD, &mut timer);
+        mmu.write_byte(0xFFFD, 0xAB, &mut timer);
+
+        cpu.step(&mut mmu, &mut timer);
+
+        assert_eq!(cpu.pc, 0xABCD);
+        assert_eq!(cpu.sp, 0xFFFE);
+        assert!(cpu.ime);
+        assert_eq!(cpu.ime_enable_delay, 0);
+    }
 }
