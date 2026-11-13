@@ -89,6 +89,7 @@ impl Cpu {
     /// # Arguments
     /// * `mmu` - Riferimento mutabile alla Memory Management Unit per accedere alla memoria.
     pub fn step(&mut self, mmu: &mut Mmu, timer: &mut Timer) -> u32 {
+        self.cycles = 0;
         let opcode = mmu.read_byte(self.pc, timer);
         if self.halt_bug_triggered {
             self.halt_bug_triggered = false;
@@ -864,6 +865,19 @@ impl Cpu {
 mod tests {
     use super::Cpu;
     use crate::{mmu::Mmu, timer::Timer};
+
+    #[test]
+    fn step_returns_only_the_cycles_for_the_current_instruction() {
+        let mut cpu = Cpu::new();
+        let mut mmu = Mmu::new();
+        let mut timer = Timer::new();
+        cpu.pc = 0xFF80;
+        mmu.write_byte(0xFF80, 0x00, &mut timer);
+        mmu.write_byte(0xFF81, 0x00, &mut timer);
+
+        assert_eq!(cpu.step(&mut mmu, &mut timer), 4);
+        assert_eq!(cpu.step(&mut mmu, &mut timer), 4);
+    }
 
     #[test]
     fn ei_enables_interrupts_after_the_following_instruction() {

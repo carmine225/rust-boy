@@ -148,8 +148,85 @@ impl Mmu {
 #[cfg(test)]
 mod tests {
     use super::Mmu;
-    use crate::cpu::Cpu;
     use crate::timer::Timer;
+    use crate::{cpu::Cpu, system::System};
+
+    fn synthetic_rom(program: &[u8]) -> Vec<u8> {
+        let mut rom = vec![0; 0x8000];
+        rom[0x100..0x100 + program.len()].copy_from_slice(program);
+        rom
+    }
+
+    #[test]
+    fn synthetic_rom_runs_with_and_without_the_bios() {
+        for use_bios in [false, true] {
+            let mut mmu = Mmu::new();
+            mmu.banking.card_rom = synthetic_rom(&[0x3E, 0x42, 0xEA, 0x00, 0xC0, 0x76]);
+
+            let mut system = System::new(mmu);
+            if use_bios {
+                system.mmu.bios = vec![0; 0x100];
+                system.mmu.bios[0xFC..].copy_from_slice(&[0x3E, 0x01, 0xE0, 0x50]);
+                system.mmu.set_bios(true, &mut system.cpu);
+            } else {
+                system.mmu.set_bios(false, &mut system.cpu);
+            }
+            assert_eq!(
+                system.mmu.read_byte(0xFF50, &mut system.timer),
+                if use_bios { 0x00 } else { 0xFF }
+            );
+
+            system.step_frame();
+
+            assert_eq!(
+                system.mmu.read_byte(0xC000, &mut system.timer),
+                0x42,
+                "BIOS enabled: {use_bios}, PC: {:#06X}",
+                system.cpu.pc
+            );
+            assert_eq!(system.cpu.pc, 0x0106);
+            assert_eq!(system.mmu.read_byte(0xFF50, &mut system.timer), 0xFF);
+        }
+    }
+
+    #[test]
+    fn synthetic_rom_timer_overflow_dispatches_and_returns_from_interrupt() {
+        let mut rom = synthetic_rom(&[
+            0x31, 0xFE, 0xFF, // LD SP, 0xFFFE
+            0x3E, 0x42, // LD A, 0x42
+            0xEA, 0x06, 0xFF, // LD (TMA), A
+            0x3E, 0xFF, // LD A, 0xFF
+            0xEA, 0x05, 0xFF, // LD (TIMA), A
+            0x3E, 0x04, // LD A, 0x04
+            0xEA, 0xFF, 0xFF, // LD (IE), A
+            0x3E, 0x05, // LD A, 0x05
+            0xE0, 0x07, // LDH (TAC), A
+            0xFB, // EI
+            0x00, // NOP
+            0x76, // HALT
+            0x3E, 0x01, // LD A, 0x01
+            0xEA, 0x01, 0xC0, // LD (0xC001), A
+            0x18, 0xF8, // JR back to HALT
+        ]);
+        rom[0x50..0x58].copy_from_slice(&[
+            0xFA, 0x00, 0xC0, // LD A, (0xC000)
+            0x3C, // INC A
+            0xEA, 0x00, 0xC0, // LD (0xC000), A
+            0xD9, // RETI
+        ]);
+
+        let mut mmu = Mmu::new();
+        mmu.banking.card_rom = rom;
+        let mut system = System::new(mmu);
+        system.mmu.set_bios(false, &mut system.cpu);
+
+        system.step_frame();
+
+        assert!(system.mmu.read_byte(0xC000, &mut system.timer) > 0);
+        assert_eq!(system.mmu.read_byte(0xC001, &mut system.timer), 0x01);
+        assert_eq!(system.mmu.read_byte(0xFF06, &mut system.timer), 0x42);
+        assert_eq!(system.mmu.read_byte(0xFFFF, &mut system.timer), 0x04);
+    }
 
     #[test]
     fn bios_selection_sets_the_matching_startup_state() {
