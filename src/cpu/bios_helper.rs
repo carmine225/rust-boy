@@ -19,8 +19,6 @@ impl Cpu {
             halt_bug_triggered: false,
             ime: false,
             ime_enable_delay: 0,
-            interrupt_enable: 0x00,
-            interrupt_flag: 0xE1,
         }
     }
 }

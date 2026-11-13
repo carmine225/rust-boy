@@ -50,8 +50,6 @@ pub struct Cpu {
     halt_bug_triggered: bool,
     ime: bool, //Interrupt Master Enable
     ime_enable_delay: u8,
-    interrupt_enable: u8,
-    interrupt_flag: u8,
 }
 impl Cpu {
     /// Crea una nuova CPU inizializzata.
@@ -80,8 +78,6 @@ impl Cpu {
             halt_bug_triggered: false, // indicates whether the halt bug has been triggered
             ime: false,    // Interrupt Master Enable flag
             ime_enable_delay: 0,
-            interrupt_enable: 0,
-            interrupt_flag: 0,
         }
     }
 
@@ -105,7 +101,7 @@ impl Cpu {
             // ==========================================
             0x00 => self.nop(),
             0x10 => self.stop(),
-            0x76 => self.halt(),
+            0x76 => self.halt(mmu, timer),
             0x27 => self.daa(),
             0x2F => self.cpl(),
             0x37 => self.scf(),
@@ -919,8 +915,8 @@ mod tests {
         let mut bug_cpu = Cpu::new();
         let mut bug_mmu = Mmu::new();
         bug_cpu.pc = 0xFF80;
-        bug_cpu.interrupt_enable = 1;
-        bug_cpu.interrupt_flag = 1;
+        bug_mmu.write_byte(0xFFFF, 1, &mut timer);
+        bug_mmu.write_byte(0xFF0F, 1, &mut timer);
         bug_mmu.write_byte(0xFF80, 0x76, &mut timer);
         bug_cpu.step(&mut bug_mmu, &mut timer);
         assert!(!bug_cpu.halted);

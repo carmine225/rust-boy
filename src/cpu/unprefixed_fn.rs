@@ -32,13 +32,13 @@ impl Cpu {
     ///
     /// Se IME è impostato, la CPU viene messa nello stato "halted".
     /// Se IME non è impostato, può verificarsi l'"halt bug" se ci sono interrupt pendenti.
-    pub fn halt(&mut self) {
+    pub fn halt(&mut self, mmu: &mut Mmu, timer: &mut Timer) {
         self.cycles = self.cycles.wrapping_add(4);
+        let pending_interrupts = mmu.read_byte(0xFFFF, timer) & mmu.read_byte(0xFF0F, timer) & 0x1F;
         if self.ime {
             self.halted = true; // Ferma l'esecuzione finché non arriva un interrupt
         } else {
-            // Gestione opzionale del celebre "Halt Bug"
-            if (self.interrupt_flag & self.interrupt_enable) & 0x1F != 0 {
+            if pending_interrupts != 0 {
                 self.halt_bug_triggered = true;
             } else {
                 self.halted = true;

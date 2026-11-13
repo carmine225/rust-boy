@@ -22,6 +22,7 @@ fn main() {
     for path in [&bios_path, &game_path, &save_path, &log_path] {
         fs::create_dir_all(path).expect("Impossibile creare la cartella dell'app");
     }
+    let use_bios = bios_path.join("bios.gb").is_file();
 
     let game_file = fs::read_dir(&game_path)
         .expect("Impossibile leggere la cartella dei giochi")
@@ -50,14 +51,14 @@ fn main() {
     let log_file_path = log_path.join("rust-boy.log");
     log::init_logger(&log_file_path);
 
-    mmu.load_bios();
+    if use_bios {
+        mmu.load_bios();
+    }
     mmu.load_game();
 
     // Crea il coordinator System passando la MMU inizializzata
     let mut system = System::new(mmu);
-
-    // Se non stai usando una Boot ROM reale, imposta il PC allo stato post-boot DMG (0x0100)
-    system.cpu.pc = 0x0100;
+    system.mmu.set_bios(use_bios, &mut system.cpu);
 
     println!("Avvio del loop di emulazione...");
 

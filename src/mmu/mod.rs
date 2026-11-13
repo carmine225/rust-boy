@@ -148,7 +148,25 @@ impl Mmu {
 #[cfg(test)]
 mod tests {
     use super::Mmu;
+    use crate::cpu::Cpu;
     use crate::timer::Timer;
+
+    #[test]
+    fn bios_selection_sets_the_matching_startup_state() {
+        let mut mmu = Mmu::new();
+        let mut cpu = Cpu::new();
+        let mut timer = Timer::new();
+        mmu.bios = vec![0x42];
+
+        mmu.set_bios(true, &mut cpu);
+        assert_eq!(cpu.pc, 0x0000);
+        assert_eq!(mmu.read_byte(0x0000, &mut timer), 0x42);
+        assert_eq!(mmu.read_byte(0xFF50, &mut timer), 0x00);
+
+        mmu.set_bios(false, &mut cpu);
+        assert_eq!(cpu.pc, 0x0100);
+        assert_eq!(mmu.read_byte(0xFF50, &mut timer), 0xFF);
+    }
 
     #[test]
     fn memory_regions_and_echo_ram_are_mapped_correctly() {

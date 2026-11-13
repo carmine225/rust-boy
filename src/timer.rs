@@ -3,6 +3,7 @@ pub struct Timer {
     pub tima: u8, // FF05: Contatore programmabile
     pub tma: u8,  // FF06: Valore di ricarica
     pub tac: u8,  // FF07: Controllo e frequenza
+    reload_delay: Option<u8>,
 }
 
 impl Timer {
@@ -12,43 +13,59 @@ impl Timer {
             tima: 0,
             tma: 0,
             tac: 0,
+            reload_delay: None,
+        }
+    }
+
+    fn timer_signal(&self) -> bool {
+        if self.tac & 0x04 == 0 {
+            return false;
+        }
+
+        let bit_to_check = match self.tac & 0x03 {
+            0 => 9,
+            1 => 3,
+            2 => 5,
+            3 => 7,
+            _ => unreachable!(),
+        };
+        (self.div >> bit_to_check) & 1 != 0
+    }
+
+    fn increment_tima(&mut self) {
+        if self.reload_delay.is_some() {
+            return;
+        }
+
+        let (new_tima, overflow) = self.tima.overflowing_add(1);
+        self.tima = new_tima;
+        if overflow {
+            self.reload_delay = Some(4);
         }
     }
 
     /// Fa avanzare il timer in base ai cicli T consumati dalla CPU
     pub fn tick(&mut self, cycles: u32, if_register: &mut u8) {
-        let bit_to_check = match self.tac & 0x03 {
-            0 => 9, // 4096 Hz   (ogni 1024 cicli T -> bit 9)
-            1 => 3, // 262144 Hz (ogni 16 cicli T   -> bit 3)
-            2 => 5, // 65536 Hz  (ogni 64 cicli T   -> bit 5)
-            3 => 7, // 16384 Hz  (ogni 256 cicli T  -> bit 7)
-            _ => unreachable!(),
-        };
-
-        let timer_enabled = (self.tac & 0x04) != 0;
-
         // Avanziamo ciclo T per ciclo T per non perdere fronti multipli in un solo step CPU
         for _ in 0..cycles {
-            let old_div = self.div;
-            self.div = self.div.wrapping_add(1);
-
-            if timer_enabled {
-                let old_bit = (old_div >> bit_to_check) & 1;
-                let new_bit = (self.div >> bit_to_check) & 1;
-
-                // Transizione 1 -> 0 (Falling Edge)
-                if old_bit == 1 && new_bit == 0 {
-                    let (new_tima, overflow) = self.tima.overflowing_add(1);
-                    if overflow {
-                        self.tima = self.tma; // Ricarica da TMA
-                        *if_register |= 0x04; // Richiede interrupt Timer (bit 2 di IF)
-                    } else {
-                        self.tima = new_tima;
-                    }
+            if let Some(delay) = self.reload_delay {
+                if delay == 1 {
+                    self.tima = self.tma;
+                    *if_register |= 0x04;
+                    self.reload_delay = None;
+                } else {
+                    self.reload_delay = Some(delay - 1);
                 }
+            }
+
+            let old_signal = self.timer_signal();
+            self.div = self.div.wrapping_add(1);
+            if old_signal && !self.timer_signal() {
+                self.increment_tima();
             }
         }
     }
+    // ---
 
     pub fn read_byte(&self, address: u16) -> u8 {
         match address {
@@ -62,14 +79,29 @@ impl Timer {
 
     pub fn write_byte(&mut self, address: u16, value: u8) {
         match address {
-            // Scrittura su DIV azzera il contatore interno
-            0xFF04 => self.div = 0,
-            0xFF05 => self.tima = value,
+            0xFF04 => {
+                let old_signal = self.timer_signal();
+                self.div = 0;
+                if old_signal && !self.timer_signal() {
+                    self.increment_tima();
+                }
+            }
+            0xFF05 => {
+                self.tima = value;
+                self.reload_delay = None;
+            }
             0xFF06 => self.tma = value,
-            0xFF07 => self.tac = value & 0x07,
+            0xFF07 => {
+                let old_signal = self.timer_signal();
+                self.tac = value & 0x07;
+                if old_signal && !self.timer_signal() {
+                    self.increment_tima();
+                }
+            }
             _ => {}
         }
     }
+    // ---
 }
 
 #[cfg(test)]
@@ -101,8 +133,16 @@ mod tests {
         assert_eq!(timer.read_byte(0xFF05), 0xFF);
         assert_eq!(if_reg & 0x04, 0);
 
-        // Altri 16 cicli T -> Overflow! TIMA va a TMA (0x50) e IF bit 2 si attiva
+        // Altri 16 cicli T causano l'overflow; il reload è ritardato di 4 T-cycles.
         timer.tick(16, &mut if_reg);
+        assert_eq!(timer.read_byte(0xFF05), 0);
+        assert_eq!(if_reg & 0x04, 0);
+
+        timer.tick(3, &mut if_reg);
+        assert_eq!(timer.read_byte(0xFF05), 0);
+        assert_eq!(if_reg & 0x04, 0);
+
+        timer.tick(1, &mut if_reg);
         assert_eq!(timer.read_byte(0xFF05), 0x50);
         assert_ne!(if_reg & 0x04, 0);
     }
@@ -149,5 +189,49 @@ mod tests {
 
         assert_eq!(timer.tima, 0);
         assert_eq!(if_reg & 0x04, 0);
+    }
+
+    #[test]
+    fn div_reset_and_tac_change_increment_tima_on_falling_edge() {
+        let mut timer = Timer::new();
+        let mut if_reg = 0;
+        timer.write_byte(0xFF07, 0x05);
+        timer.tick(8, &mut if_reg);
+        timer.write_byte(0xFF04, 0);
+        assert_eq!(timer.tima, 1);
+
+        timer.tick(8, &mut if_reg);
+        timer.write_byte(0xFF07, 0x04);
+        assert_eq!(timer.tima, 2);
+    }
+
+    #[test]
+    fn writing_tima_during_overflow_delay_cancels_reload() {
+        let mut timer = Timer::new();
+        let mut if_reg = 0;
+        timer.write_byte(0xFF05, 0xFF);
+        timer.write_byte(0xFF07, 0x05);
+        timer.tick(16, &mut if_reg);
+        assert_eq!(timer.tima, 0);
+
+        timer.write_byte(0xFF05, 0x77);
+        timer.tick(4, &mut if_reg);
+        assert_eq!(timer.tima, 0x77);
+        assert_eq!(if_reg & 0x04, 0);
+    }
+
+    #[test]
+    fn tma_write_during_overflow_delay_changes_reload_value() {
+        let mut timer = Timer::new();
+        let mut if_reg = 0;
+        timer.write_byte(0xFF05, 0xFF);
+        timer.write_byte(0xFF06, 0x50);
+        timer.write_byte(0xFF07, 0x05);
+        timer.tick(16, &mut if_reg);
+
+        timer.write_byte(0xFF06, 0xA5);
+        timer.tick(4, &mut if_reg);
+        assert_eq!(timer.tima, 0xA5);
+        assert_eq!(if_reg & 0x04, 0x04);
     }
 }
