@@ -1,18 +1,12 @@
-mod banking;
-mod cpu;
-mod log;
-mod macros;
-mod mmu;
-mod rtc;
-mod system;
-mod timer;
+mod core;
+pub use core::{banking, cpu, mmu, rtc, system, timer};
+#[path = "log.rs"]
+mod logger;
+use eframe::egui;
+mod ui;
 
-use std::fs;
-use std::io;
-use std::path::PathBuf;
-use system::System;
-
-fn main() {
+fn main() -> Result<(), eframe::Error> {
+    /*
     let app_path = PathBuf::from(env!("CARGO_PKG_NAME"));
     let bios_path = app_path.join("bios");
     let game_path = app_path.join("game");
@@ -49,7 +43,7 @@ fn main() {
     mmu.set_save_path(save_path);
 
     let log_file_path = log_path.join("rust-boy.log");
-    log::init_logger(&log_file_path);
+    logger::init_logger(&log_file_path);
 
     if use_bios {
         mmu.load_bios();
@@ -68,4 +62,16 @@ fn main() {
 
         // TODO (P0.7): Inserire qui l'aggiornamento della PPU e del rendering grafico
     }
+    */
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default().with_inner_size([900.0, 600.0]),
+        ..Default::default()
+    };
+
+    eframe::run_native(
+        "rust-boy",
+        options,
+        Box::new(|cc| Ok(Box::new(ui::Emu::new(cc)))),
+    )
+    .map_err(|e| e.into())
 }
